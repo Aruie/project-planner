@@ -22,6 +22,10 @@ def test_xlsx_export_has_fixed_cover_history_and_body_sheets() -> None:
         title="Title",
     )
     model = render_model(artifact, draft, (), "hello\n\n| a | b |\n|---|---|\n| 1 | 2 |")
+    model.cover.task_name = "과제"
+    model.cover.contractor_name = "수탁기관"
+    model.cover.client_name = "발주처"
+    model.cover.organization_name = "회사기관"
     result = xlsx_export(model, "GenericExcel")
     workbook = load_workbook(BytesIO(result.content))
     assert workbook.sheetnames == ["Cover", "ChangeHistory", "Data"]
@@ -32,3 +36,12 @@ def test_xlsx_export_has_fixed_cover_history_and_body_sheets() -> None:
         "description",
         "note",
     )
+
+    cover_values = {
+        row[0].value: row[1].value for row in workbook["Cover"].iter_rows(min_col=1, max_col=2)
+    }
+    assert cover_values["Title"] == "Title"
+    assert cover_values["Task Name"] == "과제"
+    assert cover_values["Contractor"] == "수탁기관"
+    assert cover_values["Client"] == "발주처"
+    assert cover_values["Organization"] == "회사기관"

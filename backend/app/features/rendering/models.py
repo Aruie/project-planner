@@ -19,6 +19,10 @@ class CoverModel(BaseModel):
     title: str
     description: str
     artifact_type: str
+    task_name: str = ""
+    contractor_name: str = ""
+    client_name: str = ""
+    organization_name: str = ""
 
 
 class ChangeHistoryEntry(BaseModel):

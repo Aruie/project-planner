@@ -424,3 +424,57 @@ export class ManagedDocumentFactory {
     return new GenericMarkdownDocument(source);
   }
 }
+
+export const synchronizeDocumentTitle = (
+  source: string,
+  artifactType: "MarkdownDocument" | "ExcelDocument",
+  title: string,
+): string => {
+  if (artifactType === "ExcelDocument" || SpreadsheetDocument.supports(source)) {
+    const document = new SpreadsheetDocument(source);
+    return SpreadsheetDocument.stringify({ ...document.workbook, title });
+  }
+  return splitDocument(source).frontMatter
+    ? updateDocumentCoverField(source, "title", title)
+    : source;
+};
+
+export type ProjectCoverInformation = {
+  taskName: string;
+  contractorName: string;
+  clientName: string;
+  organizationName: string;
+};
+
+export const buildDocumentExportSource = (
+  source: string,
+  title: string,
+  project: ProjectCoverInformation,
+): string => {
+  const parts = splitDocument(source);
+  const lines = parts.frontMatter ? parts.frontMatter.split("\n") : [];
+  const coverIndex = lines.findIndex((line) => /^cover:\s*$/.test(line));
+  if (coverIndex >= 0) {
+    let end = lines.length;
+    for (let index = coverIndex + 1; index < lines.length; index += 1) {
+      if (/^\S/.test(lines[index])) {
+        end = index;
+        break;
+      }
+    }
+    lines.splice(coverIndex, end - coverIndex);
+  }
+  const cover = [
+    "cover:",
+    `  title: ${yamlScalar(title)}`,
+    `  company: ${yamlScalar(project.organizationName)}`,
+    "  info:",
+    "    - label: 과제명",
+    `      value: ${yamlScalar(project.taskName)}`,
+    "    - label: 수탁기관",
+    `      value: ${yamlScalar(project.contractorName)}`,
+    "    - label: 발주처",
+    `      value: ${yamlScalar(project.clientName)}`,
+  ];
+  return joinDocument([...cover, ...lines].join("\n"), parts.body);
+};

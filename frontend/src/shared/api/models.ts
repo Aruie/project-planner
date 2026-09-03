@@ -84,4 +84,12 @@ export const isApiProblem = (value: unknown): value is ApiProblemPayload => {
 };
 
 export type AuthMeResponse = { username: string };
-export type ProjectSummary = { project_id: string; name: string; document_id_prefix: string };
+export type ProjectSummary = {
+  project_id: string;
+  name: string;
+  document_id_prefix: string;
+  task_name: string;
+  contractor_name: string;
+  client_name: string;
+  organization_name: string;
+};

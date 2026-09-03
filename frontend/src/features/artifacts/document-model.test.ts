@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   GenericMarkdownDocument,
+  buildDocumentExportSource,
   replaceDocumentBody,
+  synchronizeDocumentTitle,
   updateDocumentCoverField,
   updateDocumentInfoValue,
 } from "./document-model";
@@ -45,5 +47,32 @@ describe("managed document protected metadata", () => {
     expect(document.info[0]?.value).toBe("새 발주처");
     expect(document.body).toBe("# 본문\n\n기존 내용");
     expect(document.changelog[0]?.changes).toBe("최초 작성");
+  });
+
+  it("synchronizes the managed cover title with the artifact title", () => {
+    const next = synchronizeDocumentTitle(source, "MarkdownDocument", "산출물 기준 제목");
+    const document = new GenericMarkdownDocument(next);
+
+    expect(document.title).toBe("산출물 기준 제목");
+    expect(document.body).toBe("# 본문\n\n기존 내용");
+  });
+
+  it("builds an export-only cover from project information", () => {
+    const exported = buildDocumentExportSource(source, "산출물 제목", {
+      taskName: "차세대 시스템 구축",
+      contractorName: "수탁기관 A",
+      clientName: "발주처 B",
+      organizationName: "회사 C",
+    });
+    const document = new GenericMarkdownDocument(exported);
+
+    expect(document.title).toBe("산출물 제목");
+    expect(document.company).toBe("회사 C");
+    expect(document.info).toEqual([
+      { label: "과제명", value: "차세대 시스템 구축" },
+      { label: "수탁기관", value: "수탁기관 A" },
+      { label: "발주처", value: "발주처 B" },
+    ]);
+    expect(document.body).toBe("# 본문\n\n기존 내용");
   });
 });

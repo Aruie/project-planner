@@ -1,13 +1,12 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { type ProjectSummary } from "../../shared/api/models";
 import {
   GenericMarkdownDocument,
   ManagedDocumentFactory,
   replaceDocumentBody,
-  updateDocumentCoverField,
-  updateDocumentInfoValue,
 } from "./document-model";
 
-type View = "preview" | "information" | "source";
+type View = "preview" | "source";
 
 export function GenericDocumentView({
   content,
@@ -15,14 +14,18 @@ export function GenericDocumentView({
   disabled,
   activeView,
   showNavigation = true,
+  documentTitle,
+  projectInformation,
 }: {
   content: string;
   onContentChange: (value: string) => void;
   disabled: boolean;
   activeView?: View;
   showNavigation?: boolean;
+  documentTitle: string;
+  projectInformation: ProjectSummary | null;
 }) {
-  const [localView, setLocalView] = useState<View>("information");
+  const [localView, setLocalView] = useState<View>("preview");
   const view = activeView ?? localView;
   const document = useMemo(() => {
     const resolved = ManagedDocumentFactory.create(content);
@@ -35,12 +38,6 @@ export function GenericDocumentView({
     <div className="generic-document">
       {showNavigation ? (
         <nav className="document-view-tabs" aria-label="일반 문서 보기">
-          <button
-            className={view === "information" ? "active" : ""}
-            onClick={() => setLocalView("information")}
-          >
-            문서 정보
-          </button>
           <button
             className={view === "preview" ? "active" : ""}
             onClick={() => setLocalView("preview")}
@@ -56,13 +53,11 @@ export function GenericDocumentView({
         </nav>
       ) : null}
 
-      {view === "preview" ? <DocumentPreview document={document} /> : null}
-      {view === "information" ? (
-        <DocumentInformation
+      {view === "preview" ? (
+        <DocumentPreview
           document={document}
-          content={content}
-          onContentChange={onContentChange}
-          disabled={disabled}
+          documentTitle={documentTitle}
+          projectInformation={projectInformation}
         />
       ) : null}
       {view === "source" ? (
@@ -70,13 +65,13 @@ export function GenericDocumentView({
           <div className="source-editor-heading">
             <div>
               <strong>Markdown 본문</strong>
-              <span>Front matter는 잠겨 있으며 문서정보 화면에서만 변경할 수 있습니다.</span>
+              <span>Front matter는 호환용으로 유지되며 직접 편집할 수 없습니다.</span>
             </div>
             <span>{document.body.length.toLocaleString()}자</span>
           </div>
           <div className="frontmatter-lock-notice" role="note">
             <strong>문서 메타데이터 보호됨</strong>
-            <span>표지·문서정보·개정이력은 원문에서 직접 수정할 수 없습니다.</span>
+            <span>표지 제목은 산출물 제목을 따르며 기관 정보는 프로젝트에서 관리합니다.</span>
           </div>
           <textarea
             data-testid="artifact-content-input"
@@ -111,8 +106,21 @@ const paginateMarkdown = (body: string): string[] => {
   return pages.length ? pages : [body];
 };
 
-function DocumentPreview({ document }: { document: GenericMarkdownDocument }) {
+function DocumentPreview({
+  document,
+  documentTitle,
+  projectInformation,
+}: {
+  document: GenericMarkdownDocument;
+  documentTitle: string;
+  projectInformation: ProjectSummary | null;
+}) {
   const bodyPages = paginateMarkdown(document.body);
+  const projectFields = [
+    { label: "과제명", value: projectInformation?.task_name || projectInformation?.name || "-" },
+    { label: "수탁기관", value: projectInformation?.contractor_name || "-" },
+    { label: "발주처", value: projectInformation?.client_name || "-" },
+  ];
   let pageNumber = 0;
   return (
     <div className="document-preview">
@@ -120,18 +128,17 @@ function DocumentPreview({ document }: { document: GenericMarkdownDocument }) {
         <section className="preview-cover a4-page">
           <div className="preview-cover-brand">DOCUMENT</div>
           <div className="preview-cover-title">
-            <p>{document.subtitle}</p>
-            <h1>{document.title || "제목 없는 문서"}</h1>
+            <h1>{documentTitle || "제목 없는 문서"}</h1>
           </div>
           <div className="preview-cover-info">
-            {document.info.map((item) => (
+            {projectFields.map((item) => (
               <div key={item.label}>
                 <span>{item.label}</span>
                 <strong>{item.value}</strong>
               </div>
             ))}
           </div>
-          <footer>{document.company}</footer>
+          <footer>{projectInformation?.organization_name || "회사·기관 미입력"}</footer>
         </section>
       ) : null}
 
@@ -159,74 +166,6 @@ function DocumentPreview({ document }: { document: GenericMarkdownDocument }) {
           <span className="page-number">{++pageNumber}</span>
         </article>
       ))}
-    </div>
-  );
-}
-
-function DocumentInformation({
-  document,
-  content,
-  onContentChange,
-  disabled,
-}: {
-  document: GenericMarkdownDocument;
-  content: string;
-  onContentChange: (value: string) => void;
-  disabled: boolean;
-}) {
-  const updateCover = (field: "title" | "subtitle" | "company", value: string) =>
-    onContentChange(updateDocumentCoverField(content, field, value));
-
-  return (
-    <div className="generic-document-information">
-      <section className="document-metadata-editor">
-        <header>
-          <span>DOCUMENT METADATA</span>
-          <h2>문서정보</h2>
-          <p>보호된 front matter는 아래 필드를 통해서만 변경됩니다.</p>
-        </header>
-        <div className="metadata-form-grid">
-          <label>
-            <span>표지 제목</span>
-            <input
-              value={document.title}
-              onChange={(event) => updateCover("title", event.target.value)}
-              disabled={disabled}
-            />
-          </label>
-          <label>
-            <span>부제</span>
-            <input
-              value={document.subtitle}
-              onChange={(event) => updateCover("subtitle", event.target.value)}
-              disabled={disabled}
-            />
-          </label>
-          <label>
-            <span>회사·기관</span>
-            <input
-              value={document.company}
-              onChange={(event) => updateCover("company", event.target.value)}
-              disabled={disabled}
-            />
-          </label>
-          {document.info
-            .map((item, index) => ({ item, index }))
-            .filter(({ item }) => !/문\s*서\s*버\s*전|document\s*version/i.test(item.label))
-            .map(({ item, index }) => (
-              <label key={`${item.label}-${index}`}>
-                <span>{item.label}</span>
-                <input
-                  value={item.value}
-                  onChange={(event) =>
-                    onContentChange(updateDocumentInfoValue(content, index, event.target.value))
-                  }
-                  disabled={disabled}
-                />
-              </label>
-            ))}
-        </div>
-      </section>
     </div>
   );
 }

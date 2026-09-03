@@ -1,16 +1,8 @@
 import { useMemo, useState } from "react";
-import {
-  replaceDocumentBody,
-  updateDocumentCoverField,
-  updateDocumentInfoValue,
-} from "./document-model";
-import {
-  parseRequirementsDocument,
-  type RequirementRecord,
-  type RequirementsDocument,
-} from "./requirements-document";
+import { replaceDocumentBody } from "./document-model";
+import { parseRequirementsDocument, type RequirementRecord } from "./requirements-document";
 
-type View = "requirements" | "document" | "source";
+type View = "requirements" | "source";
 
 const hasValue = (value: string): boolean => Boolean(value && value !== "-");
 
@@ -33,7 +25,7 @@ export function RequirementsDocumentView({
   activeView?: View;
   showNavigation?: boolean;
 }) {
-  const [localView, setLocalView] = useState<View>("document");
+  const [localView, setLocalView] = useState<View>("requirements");
   const view = activeView ?? localView;
   const [query, setQuery] = useState("");
   const [area, setArea] = useState("all");
@@ -63,12 +55,6 @@ export function RequirementsDocumentView({
     <div className="requirements-document">
       {showNavigation ? (
         <nav className="document-view-tabs" aria-label="요구사항 문서 보기">
-          <button
-            className={view === "document" ? "active" : ""}
-            onClick={() => setLocalView("document")}
-          >
-            문서 정보
-          </button>
           <button
             className={view === "requirements" ? "active" : ""}
             onClick={() => setLocalView("requirements")}
@@ -196,27 +182,18 @@ export function RequirementsDocumentView({
         </div>
       ) : null}
 
-      {view === "document" ? (
-        <DocumentInformation
-          document={document}
-          content={content}
-          onContentChange={onContentChange}
-          disabled={disabled}
-        />
-      ) : null}
-
       {view === "source" ? (
         <div className="requirements-source-editor">
           <div className="source-editor-heading">
             <div>
               <strong>요구사항 Markdown 본문</strong>
-              <span>Front matter는 잠겨 있으며 문서정보 화면에서만 변경할 수 있습니다.</span>
+              <span>Front matter는 호환용으로 유지되며 직접 편집할 수 없습니다.</span>
             </div>
             <span>{document.body.length.toLocaleString()}자</span>
           </div>
           <div className="frontmatter-lock-notice" role="note">
             <strong>문서 메타데이터 보호됨</strong>
-            <span>표지·문서정보·개정이력은 원문에서 직접 수정할 수 없습니다.</span>
+            <span>표지 제목은 산출물 제목을 따르며 기관 정보는 프로젝트에서 관리합니다.</span>
           </div>
           <textarea
             data-testid="artifact-content-input"
@@ -237,74 +214,6 @@ function Summary({ label, value, tone }: { label: string; value: number; tone?: 
     <div className={`requirement-summary-card ${tone ?? ""}`}>
       <span>{label}</span>
       <strong>{value}</strong>
-    </div>
-  );
-}
-
-function DocumentInformation({
-  document,
-  content,
-  onContentChange,
-  disabled,
-}: {
-  document: RequirementsDocument;
-  content: string;
-  onContentChange: (value: string) => void;
-  disabled: boolean;
-}) {
-  const updateCover = (field: "title" | "subtitle" | "company", value: string) =>
-    onContentChange(updateDocumentCoverField(content, field, value));
-
-  return (
-    <div className="document-information">
-      <section className="document-cover-card metadata-cover-editor">
-        <p>REQUIREMENTS DEFINITION</p>
-        <label>
-          <span>표지 제목</span>
-          <input
-            value={document.title}
-            onChange={(event) => updateCover("title", event.target.value)}
-            disabled={disabled}
-          />
-        </label>
-        <label>
-          <span>부제</span>
-          <input
-            value={document.subtitle}
-            onChange={(event) => updateCover("subtitle", event.target.value)}
-            disabled={disabled}
-          />
-        </label>
-        <label>
-          <span>회사·기관</span>
-          <input
-            value={document.company}
-            onChange={(event) => updateCover("company", event.target.value)}
-            disabled={disabled}
-          />
-        </label>
-      </section>
-      <section className="document-metadata-card">
-        <h3>문서 정보</h3>
-        <p className="metadata-managed-copy">보호된 front matter는 이 화면에서만 변경됩니다.</p>
-        <div className="metadata-form-grid compact">
-          {document.info
-            .map((item, index) => ({ item, index }))
-            .filter(({ item }) => !/문\s*서\s*버\s*전|document\s*version/i.test(item.label))
-            .map(({ item, index }) => (
-              <label key={`${item.label}-${index}`}>
-                <span>{item.label}</span>
-                <input
-                  value={item.value}
-                  onChange={(event) =>
-                    onContentChange(updateDocumentInfoValue(content, index, event.target.value))
-                  }
-                  disabled={disabled}
-                />
-              </label>
-            ))}
-        </div>
-      </section>
     </div>
   );
 }

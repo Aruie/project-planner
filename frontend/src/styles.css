@@ -4086,3 +4086,97 @@ pre {
     text-align: left;
   }
 }
+
+/* Project-owned document cover information */
+.project-information-button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  margin-top: 7px;
+  padding: 8px 11px;
+  color: #b8c4d7;
+  background: #182235;
+  border: 1px solid #2b3850;
+  border-radius: 7px;
+  text-align: left;
+}
+.project-information-button:hover {
+  background: #202c41;
+  border-color: #3b4b67;
+}
+.project-information-button span {
+  font-size: 0.61rem;
+  font-weight: 750;
+}
+.project-information-button small {
+  overflow: hidden;
+  color: #78879f;
+  font-size: 0.54rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-information-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(680px, 100%);
+}
+.project-information-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px;
+  overflow: auto;
+  padding: 20px 24px;
+}
+.project-information-form label {
+  display: grid;
+  gap: 6px;
+  color: #526075;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+.project-information-form label:nth-of-type(1),
+.project-information-form label:nth-of-type(2),
+.project-information-form > p,
+.project-information-form > .safe-feedback {
+  grid-column: 1 / -1;
+}
+.project-information-form input {
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  color: #344054;
+  background: #fff;
+  border: 1px solid #d4dae4;
+  border-radius: 6px;
+  font-size: 0.68rem;
+}
+.project-information-form input:focus {
+  border-color: #7ea3e9;
+  outline: 2px solid #dfeaff;
+}
+.project-information-form > p {
+  margin: 1px 0 0;
+  padding: 10px 12px;
+  color: #68758a;
+  background: #f5f7fa;
+  border-radius: 6px;
+  font-size: 0.59rem;
+}
+.project-information-modal > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 24px;
+  background: #f8f9fb;
+  border-top: 1px solid #e3e7ed;
+}
+@media (max-width: 620px) {
+  .project-information-form {
+    grid-template-columns: 1fr;
+  }
+  .project-information-form label,
+  .project-information-form label:nth-of-type(1),
+  .project-information-form label:nth-of-type(2) {
+    grid-column: 1;
+  }
+}

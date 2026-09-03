@@ -19,6 +19,9 @@ class ProjectRepositoryFake:
     def list(self) -> tuple[Project, ...]:
         return ()
 
+    def update(self, project: Project) -> Project:
+        return project
+
     def allocate_public_document_id(self, project_id: ProjectId) -> PublicDocumentId:
         return PublicDocumentId(DocumentIdPrefix("TST"), 1)
 

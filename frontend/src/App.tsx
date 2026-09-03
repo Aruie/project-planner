@@ -6,13 +6,13 @@ import { TemplateSelectionModal } from "./features/artifacts/TemplateSelectionMo
 import { type TemplateDraft } from "./features/artifacts/document-templates";
 import { AiWorkspacePanel } from "./features/ai-workspace/AiWorkspacePanel";
 import { ApiClient } from "./shared/api/client";
-import { ApiProblem, type ArtifactResponse } from "./shared/api/models";
+import { ApiProblem, type ArtifactResponse, type ProjectSummary } from "./shared/api/models";
 import { apiBaseUrl, localAutoLoginAccess, type RuntimeAccess } from "./shared/api/runtime-config";
 import { ProjectProvider, useProject } from "./shared/project/ProjectContext";
 
 function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () => void }) {
   const { projectId, setProjectId } = useProject();
-  const [projectName, setProjectName] = useState("");
+  const [selectedProject, setSelectedProject] = useState<ProjectSummary | null>(null);
   const [artifactId, setArtifactId] = useState("");
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactResponse | null>(null);
   const [editorSession, setEditorSession] = useState(0);
@@ -23,9 +23,9 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
   const [artifactListProblem, setArtifactListProblem] = useState<ApiProblem | null>(null);
   const api = useMemo(() => new ApiClient(apiBaseUrl, () => access), [access]);
 
-  const selectProject = async (id: string, name: string) => {
-    if (!setProjectId(id)) return;
-    setProjectName(name);
+  const selectProject = async (project: ProjectSummary) => {
+    if (!setProjectId(project.project_id)) return;
+    setSelectedProject(project);
     setArtifactId("");
     setSelectedArtifact(null);
     setDraftTemplate(null);
@@ -34,7 +34,7 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
     setArtifactListProblem(null);
     setLoadingArtifacts(true);
     try {
-      setArtifacts(await api.get<ArtifactResponse[]>(`/projects/${id}/artifacts`));
+      setArtifacts(await api.get<ArtifactResponse[]>(`/projects/${project.project_id}/artifacts`));
     } catch (error) {
       setArtifactListProblem(
         error instanceof ApiProblem
@@ -89,12 +89,13 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
       <ProjectSidebar
         api={api}
         activeProjectId={projectId}
-        activeProjectName={projectName}
+        activeProjectName={selectedProject?.name ?? ""}
         artifacts={artifacts}
         loadingArtifacts={loadingArtifacts}
         artifactProblem={artifactListProblem}
         activeArtifactId={artifactId}
         onSelectProject={selectProject}
+        onProjectUpdated={setSelectedProject}
         onSelectArtifact={selectArtifact}
         onNewArtifact={startNewArtifact}
         onLogout={onLogout}
@@ -124,6 +125,7 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
                     key={`${projectId}:${selectedArtifact?.artifact_id ?? `${draftTemplate?.templateId}-${editorSession}`}`}
                     api={api}
                     projectId={projectId}
+                    projectInformation={selectedProject}
                     initialArtifact={selectedArtifact}
                     initialTemplate={draftTemplate}
                     artifacts={artifacts}

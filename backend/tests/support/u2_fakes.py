@@ -29,6 +29,10 @@ class FakeProjectRepository:
             raise ProjectNotFound("missing")
         return self.project
 
+    def update(self, project: Project) -> Project:
+        self.project = project
+        return project
+
     def allocate_public_document_id(self, project_id: ProjectId) -> PublicDocumentId:
         return self.get(project_id).allocate_document_id()
 

@@ -8,9 +8,16 @@ from botocore.exceptions import ClientError
 
 from app.domain.attachments import AttachmentMediaType, AttachmentObjectRef, AttachmentSize
 from app.domain.content import InlineContentRef
-from app.domain.entities import Attachment, Draft, DraftRevision, VersionSnapshot
+from app.domain.entities import Attachment, Draft, DraftRevision, Project, VersionSnapshot
 from app.domain.errors import DraftRevisionConflict, ImmutableSnapshotMutation
-from app.domain.identifiers import ArtifactId, AttachmentId, DraftId, ProjectId, VersionId
+from app.domain.identifiers import (
+    ArtifactId,
+    AttachmentId,
+    DocumentIdPrefix,
+    DraftId,
+    ProjectId,
+    VersionId,
+)
 from app.persistence.dynamodb import (
     DynamoDbArtifactRepository,
     DynamoDbAttachmentRepository,
@@ -105,6 +112,49 @@ def test_project_list_scans_all_pages(tables: DynamoDbTables) -> None:
     values = DynamoDbProjectRepository(client, tables).list()
     assert [item.name for item in values] == ["첫째", "둘째"]
     assert client.scan.call_count == 2
+
+
+def test_project_list_defaults_missing_information_fields(tables: DynamoDbTables) -> None:
+    client = Mock()
+    client.scan.return_value = {
+        "Items": [
+            {
+                "project_id": {"S": "123e4567-e89b-12d3-a456-426614174000"},
+                "name": {"S": "기존 프로젝트"},
+                "prefix": {"S": "OLD"},
+                "next_sequence": {"N": "1"},
+            }
+        ]
+    }
+
+    project = DynamoDbProjectRepository(client, tables).list()[0]
+
+    assert project.task_name == ""
+    assert project.contractor_name == ""
+    assert project.client_name == ""
+    assert project.organization_name == ""
+
+
+def test_project_update_persists_project_owned_information(tables: DynamoDbTables) -> None:
+    client = Mock()
+    project = Project(
+        ProjectId.new(),
+        "프로젝트",
+        DocumentIdPrefix("PRJ"),
+        task_name="과제",
+        contractor_name="수탁기관",
+        client_name="발주처",
+        organization_name="회사기관",
+    )
+
+    result = DynamoDbProjectRepository(client, tables).update(project)
+
+    assert result == project
+    values = client.update_item.call_args.kwargs["ExpressionAttributeValues"]
+    assert values[":task_name"] == {"S": "과제"}
+    assert values[":contractor_name"] == {"S": "수탁기관"}
+    assert values[":client_name"] == {"S": "발주처"}
+    assert values[":organization_name"] == {"S": "회사기관"}
 
 
 def test_attachment_read_uses_two_key_schema_and_checks_artifact_ownership(

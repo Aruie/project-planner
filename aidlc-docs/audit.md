@@ -1764,3 +1764,23 @@ gitignore 에 필요없는건 당연히 좀 빼고 pycache 나 nodu_modules 나 
 **Context**: Document template format correction, authoritative version history, and strong permanent deletion workflow
 
 ---
+
+## Project Information and Document Cover Simplification Request
+**Timestamp**: 2026-09-03T17:24:39Z
+**User Input**: "표지제목은 문서제목 따라가야하는데 그리고 과제명 수탁기관 발주처 회사기관 이런건 전부
+사실 프로젝트정보에 들어가야해
+
+마크다운 프론트매터에 들어간건 예전엔 파일로관리해서그랫던거고
+문서정보탭은 필요없을수도잇겟다 개정이력만 들어가면"
+**AI Response**: "표지 제목은 산출물 제목에서 자동 파생하고, 과제명·수탁기관·발주처·회사/기관은 프로젝트 단위 정보로 옮긴다. 문서정보 탭에서는 front matter 편집 UI를 제거하고 실제 immutable 개정이력만 남기는 방향으로 구현을 시작한다."
+**Context**: Project metadata ownership, cover title synchronization, and document information simplification
+
+---
+
+## Project Information and Document Cover Simplification Result
+**Timestamp**: 2026-09-03T17:49:56Z
+**User Input**: "N/A — result entry for the request recorded at 2026-09-03T17:24:39Z"
+**AI Response**: "Project entity/API/DynamoDB와 frontend editor에 과제명, 수탁기관, 발주처, 회사·기관을 추가하고 기존 project rows는 빈 값으로 호환했다. 산출물 제목 변경을 Markdown cover와 Excel workbook title에 자동 동기화하며 DOCX/XLSX export 표지는 selected project information을 사용한다. Generic/Requirements front matter metadata 편집 UI를 제거하고 compatibility-only 잠금 안내로 변경했다. 기존 문서정보 tab은 실제 immutable 개정이력만 표시하는 개정이력 tab으로 바꾸고 traceability는 요구사항 ↔ 테스트 tab으로 분리했다. Frontend Prettier, ESLint, TypeScript, Vitest 11 files/21 tests, production build와 Backend Ruff, pytest 82 tests가 모두 통과했다."
+**Context**: Completed project metadata ownership, synchronized document covers, and immutable history-only information view
+
+---

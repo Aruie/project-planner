@@ -49,6 +49,11 @@ def _item_string(item: dict[str, Any], name: str) -> str:
     return item[name]["S"]
 
 
+def _optional_item_string(item: dict[str, Any], name: str) -> str:
+    value = item.get(name)
+    return str(value["S"]) if value and "S" in value else ""
+
+
 def _payload(item: dict[str, Any]) -> dict[str, object]:
     return json.loads(item["payload"]["S"])
 
@@ -70,6 +75,10 @@ class DynamoDbProjectRepository:
                     "name": {"S": project.name},
                     "prefix": {"S": project.document_id_prefix.value},
                     "next_sequence": {"N": str(project.next_document_sequence)},
+                    "task_name": {"S": project.task_name},
+                    "contractor_name": {"S": project.contractor_name},
+                    "client_name": {"S": project.client_name},
+                    "organization_name": {"S": project.organization_name},
                 },
                 ConditionExpression="attribute_not_exists(project_id)",
             )
@@ -94,6 +103,10 @@ class DynamoDbProjectRepository:
             _item_string(item, "name"),
             DocumentIdPrefix(_item_string(item, "prefix")),
             int(item["next_sequence"]["N"]),
+            task_name=_optional_item_string(item, "task_name"),
+            contractor_name=_optional_item_string(item, "contractor_name"),
+            client_name=_optional_item_string(item, "client_name"),
+            organization_name=_optional_item_string(item, "organization_name"),
         )
 
     def list(self) -> tuple[Project, ...]:
@@ -117,9 +130,39 @@ class DynamoDbProjectRepository:
                 _item_string(item, "name"),
                 DocumentIdPrefix(_item_string(item, "prefix")),
                 int(item["next_sequence"]["N"]),
+                task_name=_optional_item_string(item, "task_name"),
+                contractor_name=_optional_item_string(item, "contractor_name"),
+                client_name=_optional_item_string(item, "client_name"),
+                organization_name=_optional_item_string(item, "organization_name"),
             )
             for item in items
         )
+
+    def update(self, project: Project) -> Project:
+        try:
+            self._client.update_item(
+                TableName=self._tables.projects,
+                Key={"project_id": {"S": str(project.project_id)}},
+                UpdateExpression=(
+                    "SET #name = :name, task_name = :task_name, "
+                    "contractor_name = :contractor_name, client_name = :client_name, "
+                    "organization_name = :organization_name"
+                ),
+                ConditionExpression="attribute_exists(project_id)",
+                ExpressionAttributeNames={"#name": "name"},
+                ExpressionAttributeValues={
+                    ":name": {"S": project.name},
+                    ":task_name": {"S": project.task_name},
+                    ":contractor_name": {"S": project.contractor_name},
+                    ":client_name": {"S": project.client_name},
+                    ":organization_name": {"S": project.organization_name},
+                },
+            )
+        except ClientError as error:
+            if _error_code(error) == "ConditionalCheckFailedException":
+                raise ProjectNotFound("Project does not exist") from error
+            raise PersistenceOutcomeUnknown("Project update outcome is unknown") from error
+        return project
 
     def allocate_public_document_id(self, project_id: ProjectId) -> PublicDocumentId:
         try:

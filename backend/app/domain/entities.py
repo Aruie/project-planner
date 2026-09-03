@@ -40,6 +40,10 @@ class Project:
     document_id_prefix: DocumentIdPrefix
     next_document_sequence: int = 1
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    task_name: str = ""
+    contractor_name: str = ""
+    client_name: str = ""
+    organization_name: str = ""
 
     def allocate_document_id(self) -> PublicDocumentId:
         return PublicDocumentId(self.document_id_prefix, self.next_document_sequence)

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiClient } from "../../shared/api/client";
 import { ApiProblem, type ArtifactResponse, type ProjectSummary } from "../../shared/api/models";
+import { ProjectInformationModal } from "./ProjectInformationModal";
 
 export function ProjectSidebar({
   api,
@@ -11,6 +12,7 @@ export function ProjectSidebar({
   artifactProblem,
   activeArtifactId,
   onSelectProject,
+  onProjectUpdated,
   onSelectArtifact,
   onNewArtifact,
   onLogout,
@@ -22,7 +24,8 @@ export function ProjectSidebar({
   loadingArtifacts: boolean;
   artifactProblem: ApiProblem | null;
   activeArtifactId: string;
-  onSelectProject: (id: string, name: string) => void;
+  onSelectProject: (project: ProjectSummary) => void;
+  onProjectUpdated: (project: ProjectSummary) => void;
   onSelectArtifact: (artifact: ArtifactResponse) => void;
   onNewArtifact: () => void;
   onLogout: () => void;
@@ -31,6 +34,8 @@ export function ProjectSidebar({
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [informationModalOpen, setInformationModalOpen] = useState(false);
+  const activeProject = projects.find((project) => project.project_id === activeProjectId);
 
   const loadProjects = useCallback(async () => {
     setLoadingProjects(true);
@@ -64,8 +69,15 @@ export function ProjectSidebar({
   }, [api]);
 
   const chooseProject = (project: ProjectSummary) => {
-    onSelectProject(project.project_id, project.name);
+    onSelectProject(project);
     setModalOpen(false);
+  };
+
+  const applyProjectUpdate = (project: ProjectSummary) => {
+    setProjects((items) =>
+      items.map((item) => (item.project_id === project.project_id ? project : item)),
+    );
+    onProjectUpdated(project);
   };
 
   return (
@@ -95,6 +107,15 @@ export function ProjectSidebar({
             <path d="m9 18 6-6-6-6" />
           </svg>
         </button>
+        {activeProject ? (
+          <button
+            className="project-information-button"
+            onClick={() => setInformationModalOpen(true)}
+          >
+            <span>프로젝트 정보</span>
+            <small>{activeProject.task_name || "과제명과 기관 정보를 입력하세요"}</small>
+          </button>
+        ) : null}
 
         <div className="sidebar-artifact-heading">
           <div>
@@ -244,6 +265,14 @@ export function ProjectSidebar({
             </div>
           </section>
         </div>
+      ) : null}
+      {informationModalOpen && activeProject ? (
+        <ProjectInformationModal
+          api={api}
+          project={activeProject}
+          onClose={() => setInformationModalOpen(false)}
+          onUpdated={applyProjectUpdate}
+        />
       ) : null}
     </>
   );

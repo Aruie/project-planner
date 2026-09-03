@@ -22,9 +22,6 @@ export abstract class DocumentTemplate {
     return `---
 cover:
   title: ${title}
-  subtitle: ""
-  company: ""
-  info: []
 
 toc:
   title: 목차

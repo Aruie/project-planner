@@ -4,6 +4,7 @@ import {
   ApiProblem,
   type ArtifactDetailResponse,
   type ArtifactResponse,
+  type ProjectSummary,
   type VersionResponse,
 } from "../../shared/api/models";
 import { BlockingProgress, SafeFeedback } from "../../shared/ui/SafeFeedback";
@@ -13,6 +14,8 @@ import {
   ManagedDocumentFactory,
   RequirementsDefinitionDocument,
   SpreadsheetDocument,
+  buildDocumentExportSource,
+  synchronizeDocumentTitle,
 } from "./document-model";
 import { RequirementsDocumentView } from "./RequirementsDocumentView";
 import { SpreadsheetDocumentView } from "./SpreadsheetDocumentView";
@@ -21,11 +24,12 @@ import { TraceabilityPanel } from "../traceability/TraceabilityPanel";
 import { VersionCreationModal } from "./VersionCreationModal";
 import { VersionDiffPanel } from "./VersionDiffPanel";
 
-type DocumentView = "information" | "preview" | "source" | "versions";
+type DocumentView = "information" | "preview" | "source" | "versions" | "traceability";
 
 type Props = {
   api: ApiClient;
   projectId: string;
+  projectInformation: ProjectSummary | null;
   initialArtifact?: ArtifactResponse | null;
   initialTemplate?: TemplateDraft | null;
   artifacts: ArtifactResponse[];
@@ -39,6 +43,7 @@ type Props = {
 export function ArtifactWorkspace({
   api,
   projectId,
+  projectInformation,
   initialArtifact = null,
   initialTemplate = null,
   artifacts,
@@ -57,7 +62,9 @@ export function ArtifactWorkspace({
   const [pending, setPending] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(Boolean(initialArtifact));
-  const [documentView, setDocumentView] = useState<DocumentView>("information");
+  const [documentView, setDocumentView] = useState<DocumentView>(
+    initialArtifact ? "information" : "preview",
+  );
   const [versionModalOpen, setVersionModalOpen] = useState(false);
   const [deletionModalOpen, setDeletionModalOpen] = useState(false);
   const [latestVersion, setLatestVersion] = useState<VersionResponse | null>(null);
@@ -79,6 +86,11 @@ export function ArtifactWorkspace({
     }
   };
 
+  const updateTitle = (value: string) => {
+    setTitle(value);
+    setContent((current) => synchronizeDocumentTitle(current, kind, value));
+  };
+
   const initialArtifactId = initialArtifact?.artifact_id;
   useEffect(() => {
     if (!initialArtifactId) return;
@@ -93,8 +105,14 @@ export function ArtifactWorkspace({
         setArtifact(detail);
         setTitle(detail.title);
         setSavedTitle(detail.title);
-        setContent(detail.content ?? "");
-        setSavedContent(detail.content ?? "");
+        const sourceContent = detail.content ?? "";
+        const sourceDocument = ManagedDocumentFactory.create(sourceContent, detail.artifact_type);
+        const synchronizedContent =
+          sourceDocument.title === detail.title
+            ? sourceContent
+            : synchronizeDocumentTitle(sourceContent, detail.artifact_type, detail.title);
+        setContent(synchronizedContent);
+        setSavedContent(sourceContent);
         setKind(detail.artifact_type);
         setDocumentView("information");
       })
@@ -148,6 +166,7 @@ export function ArtifactWorkspace({
 
   const run = async (operation: "create" | "save") => {
     if (!projectId || !title.trim()) return;
+    const synchronizedContent = synchronizeDocumentTitle(content, kind, title.trim());
     setPending(true);
     setProblem(null);
     try {
@@ -155,7 +174,7 @@ export function ArtifactWorkspace({
         operation === "create"
           ? await api.post<ArtifactResponse>(`/projects/${projectId}/artifacts`, {
               metadata: { title: title.trim(), artifact_type: kind },
-              content,
+              content: synchronizedContent,
             })
           : await api.put<ArtifactResponse>(
               `/projects/${projectId}/artifacts/${artifact?.artifact_id}/draft`,
@@ -164,12 +183,13 @@ export function ArtifactWorkspace({
                 title: title.trim(),
                 description: artifact?.description ?? "",
                 tags: artifact?.tags ?? [],
-                content,
+                content: synchronizedContent,
               },
             );
       setArtifact(result);
       setSavedTitle(result.title);
-      setSavedContent(content);
+      setContent(synchronizedContent);
+      setSavedContent(synchronizedContent);
       onArtifactsChange([
         ...artifacts.filter((item) => item.artifact_id !== result.artifact_id),
         result,
@@ -199,7 +219,15 @@ export function ArtifactWorkspace({
       const path = `/projects/${projectId}/artifacts/${artifact.artifact_id}/exports/${kind === "MarkdownDocument" ? "docx" : "xlsx"}`;
       const body =
         kind === "MarkdownDocument"
-          ? { markdown: content, filename: `${safeTitle}.docx` }
+          ? {
+              markdown: buildDocumentExportSource(content, title.trim(), {
+                taskName: projectInformation?.task_name || projectInformation?.name || "",
+                contractorName: projectInformation?.contractor_name ?? "",
+                clientName: projectInformation?.client_name ?? "",
+                organizationName: projectInformation?.organization_name ?? "",
+              }),
+              filename: `${safeTitle}.docx`,
+            }
           : {
               model: {
                 cover: {
@@ -207,6 +235,10 @@ export function ArtifactWorkspace({
                   title: title.trim(),
                   description: artifact.description ?? "",
                   artifact_type: artifact.artifact_type,
+                  task_name: projectInformation?.task_name || projectInformation?.name || "",
+                  contractor_name: projectInformation?.contractor_name ?? "",
+                  client_name: projectInformation?.client_name ?? "",
+                  organization_name: projectInformation?.organization_name ?? "",
                 },
                 change_history: latestVersion
                   ? [
@@ -362,18 +394,18 @@ export function ArtifactWorkspace({
         </header>
 
         <nav className="workspace-document-tabs" aria-label="문서 작업 메뉴">
-          {(
-            [
-              ["information", "문서정보"],
+          {[
+            ...(artifact ? ([["information", "개정이력"]] as const) : []),
+            ...([
               ["preview", "미리보기"],
               ["source", "원문편집"],
-              ["versions", "버전정보"],
-            ] as const
-          ).map(([value, label]) => (
+            ] as const),
+            ...(isRequirementsDocument ? ([["traceability", "요구사항 ↔ 테스트"]] as const) : []),
+            ...(artifact ? ([["versions", "버전비교"]] as const) : []),
+          ].map(([value, label]) => (
             <button
               key={value}
               className={documentView === value ? "active" : ""}
-              disabled={value === "versions" && !artifact}
               onClick={() => setDocumentView(value)}
             >
               {label}
@@ -401,7 +433,7 @@ export function ArtifactWorkspace({
                 data-testid="artifact-title-input"
                 placeholder="산출물 제목을 입력하세요"
                 value={title}
-                onChange={(event) => setTitle(event.target.value)}
+                onChange={(event) => updateTitle(event.target.value)}
                 disabled={!projectId}
               />
             </label>
@@ -413,87 +445,55 @@ export function ArtifactWorkspace({
               <strong>문서를 불러오는 중입니다</strong>
               <span>Draft 원문과 버전 정보를 준비하고 있습니다.</span>
             </div>
+          ) : documentView === "information" && artifact ? (
+            <ActualVersionHistory versions={versions} />
           ) : documentView === "versions" && artifact ? (
             <VersionDiffPanel api={api} projectId={projectId} artifactId={artifact.artifact_id} />
+          ) : documentView === "traceability" && isRequirementsDocument ? (
+            <TraceabilityPanel api={api} projectId={projectId} requirementIds={requirementIds} />
+          ) : documentModel.kind === "structured-spreadsheet" ? (
+            <SpreadsheetDocumentView
+              content={content}
+              onContentChange={updateContent}
+              disabled={!projectId}
+              activeView={documentView === "preview" ? "sheet" : "source"}
+              showNavigation={false}
+            />
+          ) : documentModel.kind === "requirements-definition" ? (
+            <RequirementsDocumentView
+              content={content}
+              onContentChange={updateContent}
+              disabled={!projectId}
+              activeView={documentView === "preview" ? "requirements" : "source"}
+              showNavigation={false}
+            />
+          ) : content.trim() && (documentModel.hasFrontMatter || Boolean(artifact)) ? (
+            <GenericDocumentView
+              content={content}
+              onContentChange={updateContent}
+              disabled={!projectId}
+              activeView={documentView === "preview" ? "preview" : "source"}
+              showNavigation={false}
+              documentTitle={title}
+              projectInformation={projectInformation}
+            />
+          ) : documentView === "source" ? (
+            <label className="document-content-field">
+              <span>Markdown 본문</span>
+              <textarea
+                data-testid="artifact-content-input"
+                aria-label="Markdown 본문"
+                placeholder={artifact ? "Draft 본문을 입력하세요." : "문서 본문을 입력하세요."}
+                value={content}
+                onChange={(event) => updateContent(event.target.value)}
+                disabled={!projectId}
+              />
+            </label>
           ) : (
-            <>
-              {documentModel.kind === "structured-spreadsheet" ? (
-                <SpreadsheetDocumentView
-                  content={content}
-                  onContentChange={updateContent}
-                  disabled={!projectId}
-                  activeView={
-                    documentView === "information"
-                      ? "information"
-                      : documentView === "preview"
-                        ? "sheet"
-                        : "source"
-                  }
-                  showNavigation={false}
-                />
-              ) : documentModel.kind === "requirements-definition" ? (
-                <RequirementsDocumentView
-                  content={content}
-                  onContentChange={updateContent}
-                  disabled={!projectId}
-                  activeView={
-                    documentView === "information"
-                      ? "document"
-                      : documentView === "preview"
-                        ? "requirements"
-                        : "source"
-                  }
-                  showNavigation={false}
-                />
-              ) : content.trim() && (documentModel.hasFrontMatter || Boolean(artifact)) ? (
-                <GenericDocumentView
-                  content={content}
-                  onContentChange={updateContent}
-                  disabled={!projectId}
-                  activeView={
-                    documentView === "information"
-                      ? "information"
-                      : documentView === "preview"
-                        ? "preview"
-                        : "source"
-                  }
-                  showNavigation={false}
-                />
-              ) : documentView === "source" ? (
-                <label className="document-content-field">
-                  <span>Markdown 본문</span>
-                  <textarea
-                    data-testid="artifact-content-input"
-                    aria-label="Markdown 본문"
-                    placeholder={artifact ? "Draft 본문을 입력하세요." : "문서 본문을 입력하세요."}
-                    value={content}
-                    onChange={(event) => updateContent(event.target.value)}
-                    disabled={!projectId}
-                  />
-                </label>
-              ) : (
-                <div className="document-empty-view">
-                  <strong>
-                    {documentView === "information"
-                      ? "문서 정보가 없습니다."
-                      : "미리볼 내용이 없습니다."}
-                  </strong>
-                  <span>원문편집에서 문서 내용을 입력하세요.</span>
-                </div>
-              )}
-
-              {documentView === "information" && artifact ? (
-                <ActualVersionHistory versions={versions} />
-              ) : null}
-
-              {documentView === "information" && isRequirementsDocument ? (
-                <TraceabilityPanel
-                  api={api}
-                  projectId={projectId}
-                  requirementIds={requirementIds}
-                />
-              ) : null}
-            </>
+            <div className="document-empty-view">
+              <strong>미리볼 내용이 없습니다.</strong>
+              <span>원문편집에서 문서 내용을 입력하세요.</span>
+            </div>
           )}
         </div>
 

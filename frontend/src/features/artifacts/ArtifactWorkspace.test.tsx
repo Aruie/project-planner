@@ -31,6 +31,7 @@ describe("ArtifactWorkspace", () => {
     const api = { get: vi.fn(), post } as unknown as ApiClient;
     const properties = {
       api,
+      projectInformation: null,
       artifacts: [] as ArtifactResponse[],
       loadingArtifacts: false,
       listProblem: null,
@@ -64,6 +65,7 @@ describe("ArtifactWorkspace", () => {
       <ArtifactWorkspace
         api={api}
         projectId="sample-project"
+        projectInformation={null}
         initialArtifact={artifact}
         artifacts={[artifact]}
         loadingArtifacts={false}
@@ -76,10 +78,10 @@ describe("ArtifactWorkspace", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("문서를 불러오는 중입니다");
     await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "문서정보" })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: "개정이력" })).toHaveClass("active");
     expect(screen.getByRole("button", { name: "미리보기" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "원문편집" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "버전정보" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "버전비교" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "파일 생성" })).toBeEnabled();
     expect(screen.getByText("아직 생성된 버전이 없습니다.")).toBeInTheDocument();
     expect(get).toHaveBeenCalledTimes(2);
@@ -106,6 +108,7 @@ describe("ArtifactWorkspace", () => {
       <ArtifactWorkspace
         api={{ get } as unknown as ApiClient}
         projectId="sample-project"
+        projectInformation={null}
         initialArtifact={artifact}
         artifacts={[artifact]}
         loadingArtifacts={false}
@@ -136,6 +139,7 @@ describe("ArtifactWorkspace", () => {
       <ArtifactWorkspace
         api={{ get, delete: remove } as unknown as ApiClient}
         projectId="sample-project"
+        projectInformation={null}
         initialArtifact={artifact}
         artifacts={[artifact]}
         loadingArtifacts={false}
