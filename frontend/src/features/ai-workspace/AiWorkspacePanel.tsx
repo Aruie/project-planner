@@ -1,15 +1,47 @@
 import { useState } from "react";
 import { ApiClient } from "../../shared/api/client";
-import { ApiProblem, type AiWorkspaceState, type ArtifactResponse } from "../../shared/api/models";
-import { Pending } from "../../shared/ui/SafeFeedback";
+import { ApiProblem, type AiWorkspaceState } from "../../shared/api/models";
+import type { ActiveDocumentContext } from "./document-bridge";
 
-export function AiWorkspacePanel({ api, projectId }: { api: ApiClient; projectId: string }) {
+const documentEditingPrompt = (
+  document: ActiveDocumentContext,
+  request: string,
+): string => `현재 왼쪽 편집기의 문서를 아래 요청대로 수정하세요.
+문서 제목: ${document.title}
+문서 형식: ${document.artifactType}
+
+<current_document>
+${document.content}
+</current_document>
+
+<change_request>
+${request}
+</change_request>
+
+현재 형식을 보존한 수정 후 전체 원문과 변경 요약을 응답 형식에 맞춰 반환하세요.`;
+
+const visibleMessageContent = (role: string, content: string): string => {
+  if (role !== "user") return content;
+  return /<change_request>\s*([\s\S]*?)\s*<\/change_request>/.exec(content)?.[1] ?? content;
+};
+
+export function AiWorkspacePanel({
+  api,
+  projectId,
+  activeDocument,
+  onApplyDocumentChange,
+}: {
+  api: ApiClient;
+  projectId: string;
+  activeDocument: ActiveDocumentContext | null;
+  onApplyDocumentChange: (content: string) => void;
+}) {
   const [state, setState] = useState<AiWorkspaceState | null>(null);
   const [prompt, setPrompt] = useState("");
-  const [title, setTitle] = useState("AI 요구사항정의서");
   const [pending, setPending] = useState(false);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
-  const [saved, setSaved] = useState<ArtifactResponse | null>(null);
+  const [proposalVisible, setProposalVisible] = useState(true);
+  const [appliedPreview, setAppliedPreview] = useState<string | null>(null);
 
   const fail = (error: unknown, code: string, message: string) =>
     setProblem(
@@ -22,7 +54,8 @@ export function AiWorkspacePanel({ api, projectId }: { api: ApiClient; projectId
     setProblem(null);
     try {
       setState(await api.post<AiWorkspaceState>(`/projects/${projectId}/ai-sessions`, {}));
-      setSaved(null);
+      setProposalVisible(true);
+      setAppliedPreview(null);
     } catch (error) {
       fail(error, "AI_SESSION_START_FAILED", "AI 대화를 시작하지 못했습니다.");
     } finally {
@@ -31,16 +64,18 @@ export function AiWorkspacePanel({ api, projectId }: { api: ApiClient; projectId
   };
 
   const send = async () => {
-    if (!state || !prompt.trim()) return;
+    if (!state || !activeDocument || !prompt.trim()) return;
     setPending(true);
     setProblem(null);
     try {
       const next = await api.post<AiWorkspaceState>(
         `/projects/${projectId}/ai-sessions/${state.session_id}/messages`,
-        { prompt: prompt.trim() },
+        { prompt: documentEditingPrompt(activeDocument, prompt.trim()) },
       );
       setState(next);
       setPrompt("");
+      setProposalVisible(true);
+      setAppliedPreview(null);
     } catch (error) {
       fail(error, "BEDROCK_INVOCATION_FAILED", "AI 응답 생성에 실패했습니다.");
     } finally {
@@ -48,22 +83,11 @@ export function AiWorkspacePanel({ api, projectId }: { api: ApiClient; projectId
     }
   };
 
-  const save = async () => {
-    if (!state?.preview || !title.trim()) return;
-    setPending(true);
-    setProblem(null);
-    try {
-      setSaved(
-        await api.post<ArtifactResponse>(
-          `/projects/${projectId}/ai-sessions/${state.session_id}/reviewed-saves`,
-          { title: title.trim(), tags: [] },
-        ),
-      );
-    } catch (error) {
-      fail(error, "AI_REVIEW_SAVE_FAILED", "검토한 AI 문서를 Draft로 저장하지 못했습니다.");
-    } finally {
-      setPending(false);
-    }
+  const applyProposal = () => {
+    if (!state?.preview) return;
+    onApplyDocumentChange(state.preview);
+    setAppliedPreview(state.preview);
+    setProposalVisible(false);
   };
 
   return (
@@ -73,13 +97,13 @@ export function AiWorkspacePanel({ api, projectId }: { api: ApiClient; projectId
           <span className="ai-status-dot" aria-hidden="true" />
           <div>
             <strong>AI 문서 도우미</strong>
-            <span>{state ? "대화 중" : "준비됨"}</span>
+            <span>{activeDocument?.title || "문서 선택 필요"}</span>
           </div>
         </div>
         <button
           className="ai-new-chat-button"
           data-testid="ai-new-session-button"
-          disabled={!projectId || pending}
+          disabled={!projectId || !activeDocument || pending}
           onClick={() => void start()}
           title="새 AI 대화"
         >
@@ -91,9 +115,12 @@ export function AiWorkspacePanel({ api, projectId }: { api: ApiClient; projectId
         {!state ? (
           <div className="ai-chat-welcome">
             <span aria-hidden="true">AI</span>
-            <strong>문서 작성을 함께 진행할게요.</strong>
-            <p>새 대화를 시작한 후 요구사항 정리, 문장 개선, 누락 검토를 요청하세요.</p>
-            <button disabled={!projectId || pending} onClick={() => void start()}>
+            <strong>왼쪽 문서를 함께 수정할게요.</strong>
+            <p>문서를 선택한 뒤 추가·수정할 내용을 요청하면 전체 변경안을 먼저 보여드립니다.</p>
+            <button
+              disabled={!projectId || !activeDocument || pending}
+              onClick={() => void start()}
+            >
               대화 시작
             </button>
           </div>
@@ -104,44 +131,35 @@ export function AiWorkspacePanel({ api, projectId }: { api: ApiClient; projectId
             key={`${message.created_at}-${index}`}
           >
             <span>{message.role === "user" ? "나" : "AI"}</span>
-            <p>{message.content}</p>
+            <p>{visibleMessageContent(message.role, message.content)}</p>
           </article>
         ))}
-        {pending && state ? (
-          <div className="ai-typing">
-            <i />
-            <i />
-            <i />
-            <span>응답을 준비하고 있습니다</span>
-          </div>
-        ) : null}
       </div>
 
-      {state?.preview ? (
+      {state?.preview && proposalVisible ? (
         <details className="ai-preview-card" open>
-          <summary>생성된 문서 초안</summary>
+          <summary>왼쪽 문서 변경안</summary>
           <div className="ai-preview-content" data-testid="ai-preview-panel">
             {state.preview}
           </div>
-          <label>
-            <span>저장 제목</span>
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
+          <div className="ai-proposal-actions">
+            <button className="secondary" onClick={() => setProposalVisible(false)}>
+              취소
+            </button>
+            <button
+              data-testid="ai-apply-document-button"
               disabled={pending}
-            />
-          </label>
-          <button
-            data-testid="ai-save-reviewed-button"
-            disabled={!title.trim() || pending}
-            onClick={() => void save()}
-          >
-            검토 완료 Draft 저장
-          </button>
-          {saved ? (
-            <p className="ai-save-success">Draft 저장 완료 · {saved.public_document_id}</p>
-          ) : null}
+              onClick={applyProposal}
+            >
+              왼쪽 문서에 적용
+            </button>
+          </div>
         </details>
+      ) : null}
+      {appliedPreview ? (
+        <p className="ai-apply-success" data-testid="ai-apply-success">
+          변경안을 왼쪽 문서에 적용했습니다. 자동 저장됩니다.
+        </p>
       ) : null}
 
       {problem ? (
@@ -149,7 +167,6 @@ export function AiWorkspacePanel({ api, projectId }: { api: ApiClient; projectId
           {problem.message}
         </p>
       ) : null}
-      <Pending active={pending && !state} />
 
       <form
         className="ai-chat-composer"
@@ -162,8 +179,14 @@ export function AiWorkspacePanel({ api, projectId }: { api: ApiClient; projectId
           data-testid="ai-prompt-input"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          disabled={!state || pending}
-          placeholder={state ? "문서에 대해 AI에게 요청하세요" : "먼저 새 대화를 시작하세요"}
+          disabled={!state || !activeDocument || pending}
+          placeholder={
+            !activeDocument
+              ? "왼쪽에서 문서를 선택하세요"
+              : state
+                ? "예: 아래쪽에 승인 절차 내용을 추가해줘"
+                : "먼저 새 대화를 시작하세요"
+          }
           rows={3}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
@@ -174,13 +197,23 @@ export function AiWorkspacePanel({ api, projectId }: { api: ApiClient; projectId
         />
         <button
           data-testid="ai-send-button"
-          disabled={!state || !prompt.trim() || pending}
+          disabled={!state || !activeDocument || !prompt.trim() || pending}
           aria-label="AI 요청 전송"
         >
           ↑
         </button>
         <small>Enter 전송 · Shift+Enter 줄바꿈</small>
       </form>
+
+      {pending ? (
+        <div className="ai-chat-processing" role="dialog" aria-modal="true" aria-label="AI 처리 중">
+          <div>
+            <span className="ai-processing-spinner" aria-hidden="true" />
+            <strong>{state ? "문서 변경안을 만들고 있습니다" : "대화를 준비하고 있습니다"}</strong>
+            <p>현재 문서를 분석하는 동안 잠시 기다려 주세요.</p>
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 }

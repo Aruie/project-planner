@@ -20,8 +20,12 @@ def test_bedrock_converse_contract_preserves_successful_history_order() -> None:
         "system": [
             {
                 "text": (
-                    "한국어 개발 산출물 요구사항 Markdown 초안을 생성하세요. "
-                    "다른 프로젝트 정보를 사용하지 마세요."
+                    "당신은 현재 열린 개발 산출물을 수정하는 한국어 문서 편집 도우미입니다. "
+                    "사용자가 제공한 current_document만 기준으로 요청된 변경을 "
+                    "반영하고 기존 문서 형식을 보존하세요. "
+                    "새 문서를 임의로 만들거나 다른 프로젝트 정보를 사용하지 마세요. "
+                    "응답은 반드시 <summary>변경 요약</summary><document>"
+                    "수정된 전체 원문</document> 형식으로만 작성하세요."
                 )
             }
         ],

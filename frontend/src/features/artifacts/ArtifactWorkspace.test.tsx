@@ -44,6 +44,8 @@ describe("ArtifactWorkspace", () => {
       onArtifactsChange: vi.fn(),
       onArtifact: vi.fn(),
       onDeleted: vi.fn(),
+      onDocumentContextChange: vi.fn(),
+      aiDocumentUpdate: null,
     };
     const view = render(<ArtifactWorkspace {...properties} projectId="" />);
 
@@ -80,11 +82,15 @@ describe("ArtifactWorkspace", () => {
         onArtifactsChange={vi.fn()}
         onArtifact={vi.fn()}
         onDeleted={vi.fn()}
+        onDocumentContextChange={vi.fn()}
+        aiDocumentUpdate={null}
       />,
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent("문서를 불러오는 중입니다");
-    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    expect(screen.getByText("문서를 불러오는 중입니다")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText("문서를 불러오는 중입니다")).not.toBeInTheDocument(),
+    );
     const previewButton = screen.getByRole("button", { name: "미리보기" });
     const historyButton = screen.getByRole("button", { name: "개정이력" });
     expect(previewButton).toHaveClass("active");
@@ -135,14 +141,81 @@ describe("ArtifactWorkspace", () => {
         onArtifactsChange={vi.fn()}
         onArtifact={vi.fn()}
         onDeleted={vi.fn()}
+        onDocumentContextChange={vi.fn()}
+        aiDocumentUpdate={null}
       />,
     );
 
-    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText("문서를 불러오는 중입니다")).not.toBeInTheDocument(),
+    );
     await user.click(screen.getByRole("button", { name: "개정이력" }));
     expect(screen.getAllByText("v2")).toHaveLength(2);
     expect(screen.getByText("승인 기준과 테스트 연결을 보완함")).toBeInTheDocument();
     expect(screen.getByText("Draft revision 2")).toBeInTheDocument();
+  });
+
+  it("publishes the active document, applies an AI update, and autosaves it", async () => {
+    const get = vi
+      .fn()
+      .mockImplementation((path: string) =>
+        Promise.resolve(path.endsWith("/versions") ? [] : detail),
+      );
+    const put = vi.fn().mockResolvedValue({ ...artifact, revision: 3 });
+    const onDocumentContextChange = vi.fn();
+    const commonProperties = {
+      api: { get, put } as unknown as ApiClient,
+      projectId: "sample-project",
+      projectInformation: null,
+      initialArtifact: artifact,
+      artifacts: [artifact],
+      loadingArtifacts: false,
+      listProblem: null,
+      onArtifactsChange: vi.fn(),
+      onArtifact: vi.fn(),
+      onDeleted: vi.fn(),
+      onDocumentContextChange,
+    };
+
+    const view = render(<ArtifactWorkspace {...commonProperties} aiDocumentUpdate={null} />);
+
+    await waitFor(() =>
+      expect(onDocumentContextChange).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentKey: artifact.artifact_id,
+          title: artifact.title,
+          content: detail.content,
+          persisted: true,
+        }),
+      ),
+    );
+
+    view.rerender(
+      <ArtifactWorkspace
+        {...commonProperties}
+        aiDocumentUpdate={{
+          documentKey: artifact.artifact_id,
+          content: "# AI 수정본\n\n## 승인 절차\n승인자를 지정한다.",
+          requestId: 1,
+        }}
+      />,
+    );
+
+    expect(await screen.findByText("승인자를 지정한다.")).toBeInTheDocument();
+    expect(screen.queryByTestId("artifact-save-button")).not.toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(put).toHaveBeenCalledWith(
+          "/projects/sample-project/artifacts/sample-artifact/draft",
+          expect.objectContaining({
+            expected_revision: 2,
+            title: artifact.title,
+            content: expect.stringContaining("승인자를 지정한다."),
+          }),
+        ),
+      { timeout: 2500 },
+    );
+    expect(await screen.findByText("자동 저장됨")).toBeInTheDocument();
   });
 
   it("requires the exact saved title before permanently deleting a document", async () => {
@@ -167,10 +240,14 @@ describe("ArtifactWorkspace", () => {
         onArtifactsChange={vi.fn()}
         onArtifact={vi.fn()}
         onDeleted={onDeleted}
+        onDocumentContextChange={vi.fn()}
+        aiDocumentUpdate={null}
       />,
     );
 
-    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByText("문서를 불러오는 중입니다")).not.toBeInTheDocument(),
+    );
     await user.click(screen.getByRole("button", { name: "문서 삭제" }));
     const deleteButton = screen.getByRole("button", { name: "영구 삭제" });
     expect(deleteButton).toBeDisabled();

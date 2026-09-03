@@ -35,9 +35,14 @@ def test_success_only_refreshes_ttl_and_preserves_history() -> None:
     service, project, sessions, bedrock = _service()
     started = service.start(project.project_id)
     assert started.expires_at == fixed_now() + SESSION_TTL
-    updated = service.send(project.project_id, AiSessionId.parse(started.session_id), "요구사항")
+    prompt = (
+        "<current_document># 기존 문서</current_document>"
+        "<change_request>승인 절차 추가</change_request>"
+    )
+    updated = service.send(project.project_id, AiSessionId.parse(started.session_id), prompt)
     assert updated.preview == "# 요구사항\n내용"
     assert len(updated.messages) == 2
+    assert updated.messages[0].content == "승인 절차 추가"
     assert updated.expires_at == fixed_now() + SESSION_TTL
     assert sessions.saves == 2
     assert bedrock.calls == 1

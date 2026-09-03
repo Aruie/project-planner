@@ -1816,3 +1816,46 @@ gitignore 에 필요없는건 당연히 좀 빼고 pycache 나 nodu_modules 나 
 **Context**: Completed UI cleanup, preview restoration, and stale-backend deletion diagnosis
 
 ---
+
+## Consolidated Layout, AI Document Editing, and Autosave Request
+**Timestamp**: 2026-09-03T18:19:35Z
+**User Input**: "테스트는 어느정도 수정ㅇ될거 되고좀핮자
+매번 하나하나 수정이 너무오래걸리자나
+해보고 이상하면 롤백도해야하는데
+
+
+1. 새 산출물을 만들거나 기존문서선택하세요 하는 화면이
+뭔가 배치가 세로로 너무 떨어져잇어 가운데좀 모이게해봐
+
+2. 미리보기창이 스크롤이안돼
+그리고 제목이 왜 흰색으로나와? 안보여 글씨가
+
+3. 우측 문서 도우미도 뭐 눌렀을때 밑에 처리중... 뜨는데
+
+우측 챗봇내에서 작은 모달같은게 뜨게하든 그렇게해야이쁘지않을까?
+
+4. 아 그리고 문서 초안을 만들어주는게아니고
+4왼쪽의 문서 내용을 읽을수있어야하고
+그 문서내용을 수정 가능하게하려는거야
+
+예를들면 왼족에 변경관리내역서 문서가 있다면
+여기 아래쪽에 무슨내용추가해줘
+하면 문서를 이렇게 수정합니다 정도 하고
+오케이 누르면 저자오디게?
+지금은 검토완료 드래프트 저장 저장 버튼이있는데 실제저장은 왼쪽 문서 UI 에서할거고
+왼쪽 실제 문서가 바뀌어야겟지?
+
+그리고 실시간으로 임시저장되는게 가능하면
+임시저장 버튼은 없애자"
+**AI Response**: "네 가지 요청을 한 배치로 구현한 뒤 마지막에 일괄 검증한다. 빈 화면/preview UI를 정리하고, AI가 현재 왼쪽 문서 원문을 받아 전체 변경안을 제안하며 승인 시 왼쪽 편집 상태에 적용되도록 bridge를 구성한다. 기존 reviewed draft 저장은 제거하고 기존 문서는 debounce 자동저장으로 전환한다."
+**Context**: Consolidated UX and active-document AI editing workflow
+
+---
+
+## Consolidated Layout, AI Document Editing, and Autosave Result
+**Timestamp**: 2026-09-03T18:45:43Z
+**User Input**: "Successfully replaced 1 occurrence(s) in /home/ec2-user/project/cop_0904/backend/app/features/ai_workspace/services.py."
+**AI Response**: "작업을 이어서 완료했다. 빈 화면 요소를 중앙에 밀집하고 preview 내부 스크롤과 표지 gradient/title 대비를 복구했다. AI 도우미는 현재 왼쪽 문서 전체를 포함한 변경 요청을 전송하고 Bedrock의 변경 요약과 전체 수정 원문을 분리해 제안하며, 승인 시 새 산출물을 생성하지 않고 현재 ArtifactWorkspace 내용에 적용한다. 처리 상태는 우측 chatbot 내부 modal overlay로 표시하고 reviewed draft 저장 UI를 제거했다. 기존 문서는 수동 임시저장 대신 1초 debounce PUT 자동저장과 저장 상태를 사용하며 문서 전환 중 늦은 저장 응답 race를 차단한다. Frontend Prettier, ESLint, TypeScript, 11 files/23 tests, production build와 Backend Ruff, 84 tests가 모두 통과했다. Playwright/Chromium은 사용하지 않았고 사용자 실행 process를 종료하지 않았다."
+**Context**: Completed consolidated document editing UX, active-document AI approval flow, autosave, and full validation
+
+---

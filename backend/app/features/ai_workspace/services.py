@@ -22,10 +22,19 @@ from .errors import (
 from .models import AiMessage, AiWorkspaceState, ReviewedPreviewSaveResponse
 from .ports import BedrockConversationPort, ReviewedDraftCreatePort
 
-PROMPT_MAX_BYTES = 20 * 1024
+PROMPT_MAX_BYTES = 320 * 1024
 CONTEXT_MAX_MESSAGES = 20
 PREVIEW_MAX_BYTES = 300 * 1024
 SESSION_TTL = timedelta(hours=24)
+
+
+def _stored_user_prompt(prompt: str) -> str:
+    start_marker, end_marker = "<change_request>", "</change_request>"
+    start = prompt.find(start_marker)
+    end = prompt.find(end_marker, start + len(start_marker))
+    if start < 0 or end < 0:
+        return prompt
+    return prompt[start + len(start_marker) : end].strip()
 
 
 class AiWorkspaceService:
@@ -73,7 +82,7 @@ class AiWorkspaceService:
         preview_ref = self._store_preview(project_id, session_id, preview)
         messages = (
             *session.messages,
-            AiSessionMessage("user", prompt, now),
+            AiSessionMessage("user", _stored_user_prompt(prompt), now),
             AiSessionMessage("assistant", result.assistant_message.strip(), now),
         )[-CONTEXT_MAX_MESSAGES:]
         saved = AiWorkspaceSession(

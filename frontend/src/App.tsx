@@ -5,6 +5,10 @@ import { ArtifactWorkspace } from "./features/artifacts/ArtifactWorkspace";
 import { TemplateSelectionModal } from "./features/artifacts/TemplateSelectionModal";
 import { type TemplateDraft } from "./features/artifacts/document-templates";
 import { AiWorkspacePanel } from "./features/ai-workspace/AiWorkspacePanel";
+import type {
+  ActiveDocumentContext,
+  AiDocumentUpdate,
+} from "./features/ai-workspace/document-bridge";
 import { ApiClient } from "./shared/api/client";
 import { ApiProblem, type ArtifactResponse, type ProjectSummary } from "./shared/api/models";
 import { apiBaseUrl, localAutoLoginAccess, type RuntimeAccess } from "./shared/api/runtime-config";
@@ -21,11 +25,15 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
   const [artifacts, setArtifacts] = useState<ArtifactResponse[]>([]);
   const [loadingArtifacts, setLoadingArtifacts] = useState(false);
   const [artifactListProblem, setArtifactListProblem] = useState<ApiProblem | null>(null);
+  const [activeDocument, setActiveDocument] = useState<ActiveDocumentContext | null>(null);
+  const [aiDocumentUpdate, setAiDocumentUpdate] = useState<AiDocumentUpdate | null>(null);
   const api = useMemo(() => new ApiClient(apiBaseUrl, () => access), [access]);
 
   const selectProject = async (project: ProjectSummary) => {
     if (!setProjectId(project.project_id)) return;
     setSelectedProject(project);
+    setActiveDocument(null);
+    setAiDocumentUpdate(null);
     setArtifactId("");
     setSelectedArtifact(null);
     setDraftTemplate(null);
@@ -51,6 +59,8 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
   };
 
   const selectArtifact = (artifact: ArtifactResponse) => {
+    setActiveDocument(null);
+    setAiDocumentUpdate(null);
     setDraftTemplate(null);
     setSelectedArtifact(artifact);
     setArtifactId(artifact.artifact_id);
@@ -61,6 +71,8 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
   };
 
   const selectTemplate = (template: TemplateDraft) => {
+    setActiveDocument(null);
+    setAiDocumentUpdate(null);
     setSelectedArtifact(null);
     setArtifactId("");
     setDraftTemplate(template);
@@ -77,11 +89,22 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
   };
 
   const deleteWorkspaceArtifact = (id: string) => {
+    setActiveDocument(null);
+    setAiDocumentUpdate(null);
     setArtifacts((items) => items.filter((item) => item.artifact_id !== id));
     setArtifactId("");
     setSelectedArtifact(null);
     setDraftTemplate(null);
     setEditorSession((value) => value + 1);
+  };
+
+  const applyAiDocumentChange = (content: string) => {
+    if (!activeDocument) return;
+    setAiDocumentUpdate((current) => ({
+      documentKey: activeDocument.documentKey,
+      content,
+      requestId: (current?.requestId ?? 0) + 1,
+    }));
   };
 
   return (
@@ -134,8 +157,16 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
                     onArtifactsChange={setArtifacts}
                     onArtifact={syncWorkspaceArtifact}
                     onDeleted={deleteWorkspaceArtifact}
+                    onDocumentContextChange={setActiveDocument}
+                    aiDocumentUpdate={aiDocumentUpdate}
                   />
-                  <AiWorkspacePanel api={api} projectId={projectId} />
+                  <AiWorkspacePanel
+                    key={`${projectId}:ai:${selectedArtifact?.artifact_id ?? `${draftTemplate?.templateId}-${editorSession}`}`}
+                    api={api}
+                    projectId={projectId}
+                    activeDocument={activeDocument}
+                    onApplyDocumentChange={applyAiDocumentChange}
+                  />
                 </div>
               ) : (
                 <section className="template-start-empty">

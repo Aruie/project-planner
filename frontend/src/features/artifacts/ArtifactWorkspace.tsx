@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiClient } from "../../shared/api/client";
 import {
   ApiProblem,
@@ -8,6 +8,7 @@ import {
   type VersionResponse,
 } from "../../shared/api/models";
 import { BlockingProgress, SafeFeedback } from "../../shared/ui/SafeFeedback";
+import type { ActiveDocumentContext, AiDocumentUpdate } from "../ai-workspace/document-bridge";
 import { ArtifactDeletionModal } from "./ArtifactDeletionModal";
 import { GenericDocumentView } from "./GenericDocumentView";
 import {
@@ -38,6 +39,8 @@ type Props = {
   onArtifactsChange: (items: ArtifactResponse[]) => void;
   onArtifact: (id: string, artifact?: ArtifactResponse) => void;
   onDeleted: (artifactId: string) => void;
+  onDocumentContextChange: (document: ActiveDocumentContext) => void;
+  aiDocumentUpdate: AiDocumentUpdate | null;
 };
 
 export function ArtifactWorkspace({
@@ -50,6 +53,8 @@ export function ArtifactWorkspace({
   onArtifactsChange,
   onArtifact,
   onDeleted,
+  onDocumentContextChange,
+  aiDocumentUpdate,
 }: Props) {
   const [artifact, setArtifact] = useState<ArtifactResponse | null>(initialArtifact);
   const [title, setTitle] = useState(initialArtifact?.title ?? initialTemplate?.title ?? "");
@@ -68,13 +73,23 @@ export function ArtifactWorkspace({
   const [latestVersion, setLatestVersion] = useState<VersionResponse | null>(null);
   const [versions, setVersions] = useState<VersionResponse[]>([]);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const autoSaveInFlight = useRef(false);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const documentModel = useMemo(
     () => ManagedDocumentFactory.create(content, kind),
     [content, kind],
   );
   const canCreate = Boolean(projectId && !artifact && title.trim() && !pending);
-  const canSave = Boolean(artifact && title.trim() && content.trim() && !pending && !loadingDetail);
   const hasUnsavedChanges = Boolean(artifact && (content !== savedContent || title !== savedTitle));
+  const documentKey = artifact?.artifact_id ?? `new:${initialTemplate?.templateId ?? "document"}`;
 
   const updateContent = (value: string) => {
     setContent(value);
@@ -88,6 +103,26 @@ export function ArtifactWorkspace({
     setTitle(value);
     setContent((current) => synchronizeDocumentTitle(current, kind, value));
   };
+
+  useEffect(() => {
+    if (loadingDetail) return;
+    onDocumentContextChange({
+      documentKey,
+      title,
+      artifactType: kind,
+      content,
+      persisted: Boolean(artifact),
+    });
+  }, [artifact, content, documentKey, kind, loadingDetail, onDocumentContextChange, title]);
+
+  /* eslint-disable react-hooks/set-state-in-effect -- approved AI updates are external editor events */
+  useEffect(() => {
+    if (!aiDocumentUpdate || aiDocumentUpdate.documentKey !== documentKey) return;
+    setContent(synchronizeDocumentTitle(aiDocumentUpdate.content, kind, title));
+    setDocumentView("preview");
+    setProblem(null);
+  }, [aiDocumentUpdate, documentKey, kind, title]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const initialArtifactId = initialArtifact?.artifact_id;
   useEffect(() => {
@@ -162,28 +197,16 @@ export function ArtifactWorkspace({
     onArtifact("");
   };
 
-  const run = async (operation: "create" | "save") => {
+  const createArtifact = async () => {
     if (!projectId || !title.trim()) return;
     const synchronizedContent = synchronizeDocumentTitle(content, kind, title.trim());
     setPending(true);
     setProblem(null);
     try {
-      const result =
-        operation === "create"
-          ? await api.post<ArtifactResponse>(`/projects/${projectId}/artifacts`, {
-              metadata: { title: title.trim(), artifact_type: kind },
-              content: synchronizedContent,
-            })
-          : await api.put<ArtifactResponse>(
-              `/projects/${projectId}/artifacts/${artifact?.artifact_id}/draft`,
-              {
-                expected_revision: artifact?.revision,
-                title: title.trim(),
-                description: artifact?.description ?? "",
-                tags: artifact?.tags ?? [],
-                content: synchronizedContent,
-              },
-            );
+      const result = await api.post<ArtifactResponse>(`/projects/${projectId}/artifacts`, {
+        metadata: { title: title.trim(), artifact_type: kind },
+        content: synchronizedContent,
+      });
       setArtifact(result);
       setSavedTitle(result.title);
       setContent(synchronizedContent);
@@ -199,7 +222,7 @@ export function ArtifactWorkspace({
           ? error
           : new ApiProblem({
               code: "NETWORK_ERROR",
-              message: "Draft를 저장하지 못했습니다.",
+              message: "산출물을 생성하지 못했습니다.",
               retryable: true,
             }),
       );
@@ -207,6 +230,94 @@ export function ArtifactWorkspace({
       setPending(false);
     }
   };
+
+  const saveDraft = useCallback(
+    async (
+      currentArtifact: ArtifactResponse,
+      snapshotTitle: string,
+      snapshotContent: string,
+      snapshotKind: "MarkdownDocument" | "ExcelDocument",
+    ) => {
+      if (autoSaveInFlight.current) return;
+      autoSaveInFlight.current = true;
+      setAutoSaving(true);
+      setProblem(null);
+      const synchronizedContent = synchronizeDocumentTitle(
+        snapshotContent,
+        snapshotKind,
+        snapshotTitle.trim(),
+      );
+      try {
+        const result = await api.put<ArtifactResponse>(
+          `/projects/${projectId}/artifacts/${currentArtifact.artifact_id}/draft`,
+          {
+            expected_revision: currentArtifact.revision,
+            title: snapshotTitle.trim(),
+            description: currentArtifact.description ?? "",
+            tags: currentArtifact.tags ?? [],
+            content: synchronizedContent,
+          },
+        );
+        if (!mounted.current) return;
+        setArtifact(result);
+        setSavedTitle(result.title);
+        setSavedContent(synchronizedContent);
+        setContent((current) =>
+          current === snapshotContent || current === synchronizedContent
+            ? synchronizedContent
+            : current,
+        );
+        onArtifactsChange([
+          ...artifacts.filter((item) => item.artifact_id !== result.artifact_id),
+          result,
+        ]);
+        onArtifact(result.artifact_id, result);
+      } catch (error) {
+        if (!mounted.current) return;
+        setProblem(
+          error instanceof ApiProblem
+            ? error
+            : new ApiProblem({
+                code: "AUTOSAVE_FAILED",
+                message: "변경 내용을 자동 저장하지 못했습니다.",
+                retryable: true,
+              }),
+        );
+      } finally {
+        autoSaveInFlight.current = false;
+        if (mounted.current) setAutoSaving(false);
+      }
+    },
+    [api, artifacts, onArtifact, onArtifactsChange, projectId],
+  );
+
+  useEffect(() => {
+    if (
+      !artifact ||
+      !hasUnsavedChanges ||
+      loadingDetail ||
+      pending ||
+      exporting ||
+      !title.trim() ||
+      autoSaveInFlight.current
+    ) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void saveDraft(artifact, title, content, kind);
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [
+    artifact,
+    content,
+    exporting,
+    hasUnsavedChanges,
+    kind,
+    loadingDetail,
+    pending,
+    saveDraft,
+    title,
+  ]);
 
   const generateFile = async () => {
     if (!artifact || exporting) return;
@@ -349,39 +460,42 @@ export function ArtifactWorkspace({
                   className="primary-button"
                   data-testid="artifact-create-button"
                   disabled={!canCreate}
-                  onClick={() => void run("create")}
+                  onClick={() => void createArtifact()}
                 >
                   산출물 생성
                 </button>
               </>
             ) : (
               <>
-                <button
-                  className="secondary-button"
-                  data-testid="artifact-save-button"
-                  disabled={!canSave}
-                  onClick={() => void run("save")}
+                <span
+                  className={`autosave-status ${autoSaving ? "saving" : hasUnsavedChanges ? "waiting" : "saved"}`}
+                  role="status"
+                  aria-live="polite"
                 >
-                  임시저장
-                </button>
+                  {autoSaving
+                    ? "자동 저장 중…"
+                    : hasUnsavedChanges
+                      ? "자동 저장 대기 중"
+                      : "자동 저장됨"}
+                </span>
                 <button
                   className="primary-button"
-                  disabled={hasUnsavedChanges || pending}
-                  title={hasUnsavedChanges ? "변경 내용을 먼저 임시저장하세요." : undefined}
+                  disabled={hasUnsavedChanges || autoSaving || pending}
+                  title={hasUnsavedChanges ? "자동 저장이 완료될 때까지 기다려주세요." : undefined}
                   onClick={() => setVersionModalOpen(true)}
                 >
                   새 버전 생성
                 </button>
                 <button
                   className="file-generate-button"
-                  disabled={loadingDetail || exporting}
+                  disabled={loadingDetail || exporting || autoSaving}
                   onClick={() => void generateFile()}
                 >
                   {exporting ? "파일 생성 중…" : "파일 생성"}
                 </button>
                 <button
                   className="delete-document-button"
-                  disabled={pending || exporting}
+                  disabled={pending || exporting || autoSaving}
                   onClick={() => setDeletionModalOpen(true)}
                 >
                   문서 삭제
@@ -517,13 +631,7 @@ export function ArtifactWorkspace({
       ) : null}
       <BlockingProgress
         active={pending || exporting}
-        title={
-          exporting
-            ? "파일을 생성하고 있습니다"
-            : artifact
-              ? "임시저장 중입니다"
-              : "산출물을 생성하고 있습니다"
-        }
+        title={exporting ? "파일을 생성하고 있습니다" : "산출물을 생성하고 있습니다"}
         description="완료될 때까지 현재 화면에서 잠시 기다려 주세요."
       />
     </section>
