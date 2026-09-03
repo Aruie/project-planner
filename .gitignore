@@ -1,0 +1,12 @@
+# Developer-specific runtime settings; do not commit credentials or account-specific resource names.
+.env.local
+
+# Generated CI logs and Python caches.
+.ci-artifacts/
+**/.hypothesis/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/

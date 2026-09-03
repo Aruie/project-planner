@@ -1,0 +1,91 @@
+"""Storage ports owned by U1; adapters are implemented without leaking SDK types."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Protocol, runtime_checkable
+
+from app.domain.attachments import AttachmentMediaType, AttachmentObjectRef
+from app.domain.content import S3ContentRef
+from app.domain.entities import (
+    AiWorkspaceSession,
+    Artifact,
+    Attachment,
+    Draft,
+    DraftRevision,
+    Project,
+    TraceLink,
+    VersionSnapshot,
+)
+from app.domain.identifiers import (
+    AiSessionId,
+    ArtifactId,
+    AttachmentId,
+    ProjectId,
+    PublicDocumentId,
+    TraceLinkId,
+    VersionId,
+)
+
+
+@runtime_checkable
+class ProjectRepository(Protocol):
+    def create(self, project: Project) -> Project: ...
+    def get(self, project_id: ProjectId) -> Project: ...
+    def list(self) -> tuple[Project, ...]: ...
+    def allocate_public_document_id(self, project_id: ProjectId) -> PublicDocumentId: ...
+
+
+@runtime_checkable
+class ArtifactRepository(Protocol):
+    def create(self, artifact: Artifact, draft: Draft) -> Artifact: ...
+    def get(self, project_id: ProjectId, artifact_id: ArtifactId) -> Artifact: ...
+    def get_draft(self, project_id: ProjectId, artifact_id: ArtifactId) -> Draft: ...
+    def list_for_project(self, project_id: ProjectId) -> tuple[Artifact, ...]: ...
+    def replace_draft(
+        self,
+        project_id: ProjectId,
+        artifact_id: ArtifactId,
+        expected_revision: DraftRevision,
+        replacement: Draft,
+    ) -> Draft: ...
+
+
+@runtime_checkable
+class VersionRepository(Protocol):
+    def append(self, snapshot: VersionSnapshot) -> VersionSnapshot: ...
+    def get(self, artifact_id: ArtifactId, version_id: VersionId) -> VersionSnapshot: ...
+    def list_for_artifact(self, artifact_id: ArtifactId) -> tuple[VersionSnapshot, ...]: ...
+
+
+@runtime_checkable
+class AttachmentRepository(Protocol):
+    def save(self, attachment: Attachment) -> Attachment: ...
+    def get(
+        self, project_id: ProjectId, artifact_id: ArtifactId, attachment_id: AttachmentId
+    ) -> Attachment: ...
+
+
+@runtime_checkable
+class TraceLinkRepository(Protocol):
+    def save(self, trace_link: TraceLink) -> TraceLink: ...
+    def list_for_project(self, project_id: ProjectId) -> tuple[TraceLink, ...]: ...
+    def get(self, project_id: ProjectId, trace_link_id: TraceLinkId) -> TraceLink: ...
+
+
+@runtime_checkable
+class AiSessionRepository(Protocol):
+    def save(self, session: AiWorkspaceSession) -> AiWorkspaceSession: ...
+    def get(self, project_id: ProjectId, session_id: AiSessionId) -> AiWorkspaceSession: ...
+    def expires_at(self, session_id: AiSessionId) -> datetime: ...
+
+
+@runtime_checkable
+class ObjectStoragePort(Protocol):
+    def put_content(self, object_key: str, content: bytes, checksum: str) -> S3ContentRef: ...
+    def get_content(self, reference: S3ContentRef) -> bytes: ...
+    def put_attachment(
+        self, object_key: str, content: bytes, media_type: AttachmentMediaType
+    ) -> AttachmentObjectRef: ...
+    def get_attachment(self, reference: AttachmentObjectRef) -> bytes: ...
+    def delete_unreferenced(self, object_key: str) -> None: ...

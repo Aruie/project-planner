@@ -1,0 +1,8 @@
+[Unit]
+Description=AIDLC backend uv test and PBT CI job
+
+[Service]
+Type=oneshot
+Environment=PATH=/home/ec2-user/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+WorkingDirectory=/home/ec2-user/project/cop_0904
+ExecStart=/home/ec2-user/project/cop_0904/ci-backend.sh
