@@ -77,8 +77,8 @@ export function ProjectSidebar({
             <span />
           </div>
           <div>
-            <strong>AIDLC</strong>
-            <small>Workspace</small>
+            <strong>산출물 관리</strong>
+            <small>프로그램</small>
           </div>
         </div>
 

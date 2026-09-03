@@ -100,7 +100,7 @@ function DocumentPreview({ document }: { document: GenericMarkdownDocument }) {
     <div className="document-preview">
       {document.hasFrontMatter ? (
         <section className="preview-cover a4-page">
-          <div className="preview-cover-brand">AIDLC DOCUMENT</div>
+          <div className="preview-cover-brand">DOCUMENT</div>
           <div className="preview-cover-title">
             <p>{document.subtitle}</p>
             <h1>{document.title || "제목 없는 문서"}</h1>

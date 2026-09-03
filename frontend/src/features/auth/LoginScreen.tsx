@@ -30,7 +30,7 @@ export function LoginScreen({ onLogin }: { onLogin: (access: RuntimeAccess) => v
   return (
     <main className="login-screen">
       <section>
-        <h1>AIDLC 산출물 관리</h1>
+        <h1>산출물 관리 프로그램</h1>
         <p>관리자 로그인 후 프로젝트를 선택하세요.</p>
         <form onSubmit={(event) => void submit(event)}>
           <label>
