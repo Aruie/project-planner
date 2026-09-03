@@ -1,5 +1,10 @@
 import { useMemo, useState } from "react";
 import {
+  replaceDocumentBody,
+  updateDocumentCoverField,
+  updateDocumentInfoValue,
+} from "./document-model";
+import {
   parseRequirementsDocument,
   type RequirementRecord,
   type RequirementsDocument,
@@ -191,21 +196,33 @@ export function RequirementsDocumentView({
         </div>
       ) : null}
 
-      {view === "document" ? <DocumentInformation document={document} /> : null}
+      {view === "document" ? (
+        <DocumentInformation
+          document={document}
+          content={content}
+          onContentChange={onContentChange}
+          disabled={disabled}
+        />
+      ) : null}
 
       {view === "source" ? (
         <div className="requirements-source-editor">
           <div className="source-editor-heading">
             <div>
-              <strong>YAML + Markdown 원문</strong>
-              <span>표지, 개정이력과 요구사항 표를 한 문서로 저장합니다.</span>
+              <strong>요구사항 Markdown 본문</strong>
+              <span>Front matter는 잠겨 있으며 문서정보 화면에서만 변경할 수 있습니다.</span>
             </div>
-            <span>{content.length.toLocaleString()}자</span>
+            <span>{document.body.length.toLocaleString()}자</span>
+          </div>
+          <div className="frontmatter-lock-notice" role="note">
+            <strong>문서 메타데이터 보호됨</strong>
+            <span>표지·문서정보·개정이력은 원문에서 직접 수정할 수 없습니다.</span>
           </div>
           <textarea
             data-testid="artifact-content-input"
-            value={content}
-            onChange={(event) => onContentChange(event.target.value)}
+            aria-label="요구사항 Markdown 본문"
+            value={document.body}
+            onChange={(event) => onContentChange(replaceDocumentBody(content, event.target.value))}
             disabled={disabled}
             spellCheck={false}
           />
@@ -224,30 +241,71 @@ function Summary({ label, value, tone }: { label: string; value: number; tone?: 
   );
 }
 
-function DocumentInformation({ document }: { document: RequirementsDocument }) {
+function DocumentInformation({
+  document,
+  content,
+  onContentChange,
+  disabled,
+}: {
+  document: RequirementsDocument;
+  content: string;
+  onContentChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  const updateCover = (field: "title" | "subtitle" | "company", value: string) =>
+    onContentChange(updateDocumentCoverField(content, field, value));
+
   return (
     <div className="document-information">
-      <section className="document-cover-card">
+      <section className="document-cover-card metadata-cover-editor">
         <p>REQUIREMENTS DEFINITION</p>
-        <h3>{document.title || "요구사항 정의서"}</h3>
-        <strong>{document.subtitle}</strong>
-        <span>{document.company}</span>
+        <label>
+          <span>표지 제목</span>
+          <input
+            value={document.title}
+            onChange={(event) => updateCover("title", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label>
+          <span>부제</span>
+          <input
+            value={document.subtitle}
+            onChange={(event) => updateCover("subtitle", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
+        <label>
+          <span>회사·기관</span>
+          <input
+            value={document.company}
+            onChange={(event) => updateCover("company", event.target.value)}
+            disabled={disabled}
+          />
+        </label>
       </section>
       <section className="document-metadata-card">
         <h3>문서 정보</h3>
-        <dl>
-          {document.info.map((item) => (
-            <div key={item.label}>
-              <dt>{item.label}</dt>
-              <dd>{item.value}</dd>
-            </div>
+        <p className="metadata-managed-copy">보호된 front matter는 이 화면에서만 변경됩니다.</p>
+        <div className="metadata-form-grid compact">
+          {document.info.map((item, index) => (
+            <label key={`${item.label}-${index}`}>
+              <span>{item.label}</span>
+              <input
+                value={item.value}
+                onChange={(event) =>
+                  onContentChange(updateDocumentInfoValue(content, index, event.target.value))
+                }
+                disabled={disabled}
+              />
+            </label>
           ))}
-        </dl>
+        </div>
       </section>
       <section className="document-history-card">
         <header>
           <h3>개정 이력</h3>
-          <span>{document.changelog.length}개 버전</span>
+          <span>{document.changelog.length}개 버전 · 시스템 관리</span>
         </header>
         <div className="history-list">
           {document.changelog.map((entry) => (

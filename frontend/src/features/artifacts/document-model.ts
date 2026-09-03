@@ -59,6 +59,82 @@ const splitDocument = (source: string): { frontMatter: string; body: string } =>
   return match ? { frontMatter: match[1], body: match[2] } : { frontMatter: "", body: source };
 };
 
+export type EditableCoverField = "title" | "subtitle" | "company";
+
+const joinDocument = (frontMatter: string, body: string): string =>
+  frontMatter ? `---\n${frontMatter}\n---\n${body}` : body;
+
+export const replaceDocumentBody = (source: string, body: string): string => {
+  const parts = splitDocument(source);
+  return joinDocument(parts.frontMatter, body);
+};
+
+const yamlScalar = (value: string): string => JSON.stringify(value);
+
+export const updateDocumentCoverField = (
+  source: string,
+  field: EditableCoverField,
+  value: string,
+): string => {
+  const parts = splitDocument(source);
+  const lines = parts.frontMatter ? parts.frontMatter.split("\n") : [];
+  let coverIndex = lines.findIndex((line) => /^cover:\s*$/.test(line));
+  if (coverIndex < 0) {
+    lines.unshift("cover:");
+    coverIndex = 0;
+  }
+  let end = lines.length;
+  for (let index = coverIndex + 1; index < lines.length; index += 1) {
+    if (/^\S/.test(lines[index])) {
+      end = index;
+      break;
+    }
+  }
+  const fieldPattern = new RegExp(`^  ${field}:\\s*`);
+  const fieldIndex = lines.findIndex(
+    (line, index) => index > coverIndex && index < end && fieldPattern.test(line),
+  );
+  const nextLine = `  ${field}: ${yamlScalar(value)}`;
+  if (fieldIndex >= 0) lines[fieldIndex] = nextLine;
+  else lines.splice(coverIndex + 1, 0, nextLine);
+  return joinDocument(lines.join("\n"), parts.body);
+};
+
+export const updateDocumentInfoValue = (
+  source: string,
+  infoIndex: number,
+  value: string,
+): string => {
+  const parts = splitDocument(source);
+  if (!parts.frontMatter) return source;
+  const lines = parts.frontMatter.split("\n");
+  let inCover = false;
+  let inInfo = false;
+  let currentInfo = -1;
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/^cover:\s*$/.test(line)) {
+      inCover = true;
+      continue;
+    }
+    if (inCover && /^\S/.test(line)) break;
+    if (inCover && /^ {2}info:\s*$/.test(line)) {
+      inInfo = true;
+      continue;
+    }
+    if (!inInfo) continue;
+    if (/^ {4}- label:\s*/.test(line)) {
+      currentInfo += 1;
+      continue;
+    }
+    if (currentInfo === infoIndex && /^ {6}value:\s*/.test(line)) {
+      lines[index] = `      value: ${yamlScalar(value)}`;
+      return joinDocument(lines.join("\n"), parts.body);
+    }
+  }
+  return source;
+};
+
 const section = (frontMatter: string, name: string, nextNames: string[]): string => {
   const start = frontMatter.search(new RegExp(`^${name}:\\s*$`, "m"));
   if (start < 0) return "";

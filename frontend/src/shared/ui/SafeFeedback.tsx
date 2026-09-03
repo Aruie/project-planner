@@ -25,3 +25,32 @@ export function SafeFeedback({
 export function Pending({ active }: { active: boolean }) {
   return active ? <span aria-live="polite">처리 중</span> : null;
 }
+
+export function BlockingProgress({
+  active,
+  title,
+  description,
+}: {
+  active: boolean;
+  title: string;
+  description: string;
+}) {
+  if (!active) return null;
+  return (
+    <div className="blocking-progress-backdrop" role="presentation">
+      <section
+        className="blocking-progress-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-live="assertive"
+        aria-labelledby="blocking-progress-title"
+      >
+        <span className="blocking-progress-spinner" aria-hidden="true" />
+        <div>
+          <strong id="blocking-progress-title">{title}</strong>
+          <p>{description}</p>
+        </div>
+      </section>
+    </div>
+  );
+}

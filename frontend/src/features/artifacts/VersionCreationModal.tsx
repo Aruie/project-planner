@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiClient } from "../../shared/api/client";
 import { ApiProblem, type DiffResult, type VersionResponse } from "../../shared/api/models";
-import { SafeFeedback } from "../../shared/ui/SafeFeedback";
+import { BlockingProgress, SafeFeedback } from "../../shared/ui/SafeFeedback";
 
 type Row = { left: string; right: string; kind: "same" | "added" | "removed" | "changed" };
 
@@ -116,7 +116,7 @@ export function VersionCreationModal({
   };
 
   return (
-    <div className="version-modal-backdrop" onMouseDown={onClose}>
+    <div className="version-modal-backdrop" onMouseDown={() => !creating && onClose()}>
       <section
         className="version-modal"
         role="dialog"
@@ -134,7 +134,7 @@ export function VersionCreationModal({
                 : "첫 번째 버전을 생성합니다."}
             </span>
           </div>
-          <button onClick={onClose} aria-label="닫기">
+          <button onClick={onClose} aria-label="닫기" disabled={creating}>
             <svg viewBox="0 0 24 24">
               <path d="m6 6 12 12M18 6 6 18" />
             </svg>
@@ -188,7 +188,7 @@ export function VersionCreationModal({
           <SafeFeedback problem={problem} />
         </div>
         <footer>
-          <button className="secondary-button" onClick={onClose}>
+          <button className="secondary-button" onClick={onClose} disabled={creating}>
             취소
           </button>
           <button
@@ -200,6 +200,11 @@ export function VersionCreationModal({
           </button>
         </footer>
       </section>
+      <BlockingProgress
+        active={creating}
+        title="새 버전을 생성하고 있습니다"
+        description="변경 내용을 확정하고 immutable version을 저장하는 중입니다."
+      />
     </div>
   );
 }

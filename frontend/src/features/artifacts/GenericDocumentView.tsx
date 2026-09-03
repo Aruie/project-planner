@@ -1,5 +1,11 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
-import { GenericMarkdownDocument, ManagedDocumentFactory } from "./document-model";
+import {
+  GenericMarkdownDocument,
+  ManagedDocumentFactory,
+  replaceDocumentBody,
+  updateDocumentCoverField,
+  updateDocumentInfoValue,
+} from "./document-model";
 
 type View = "preview" | "information" | "source";
 
@@ -51,20 +57,32 @@ export function GenericDocumentView({
       ) : null}
 
       {view === "preview" ? <DocumentPreview document={document} /> : null}
-      {view === "information" ? <DocumentInformation document={document} /> : null}
+      {view === "information" ? (
+        <DocumentInformation
+          document={document}
+          content={content}
+          onContentChange={onContentChange}
+          disabled={disabled}
+        />
+      ) : null}
       {view === "source" ? (
         <div className="requirements-source-editor">
           <div className="source-editor-heading">
             <div>
-              <strong>Front matter + Markdown</strong>
-              <span>표지와 개정이력은 front matter에서, 본문은 Markdown에서 구성됩니다.</span>
+              <strong>Markdown 본문</strong>
+              <span>Front matter는 잠겨 있으며 문서정보 화면에서만 변경할 수 있습니다.</span>
             </div>
-            <span>{content.length.toLocaleString()}자</span>
+            <span>{document.body.length.toLocaleString()}자</span>
+          </div>
+          <div className="frontmatter-lock-notice" role="note">
+            <strong>문서 메타데이터 보호됨</strong>
+            <span>표지·문서정보·개정이력은 원문에서 직접 수정할 수 없습니다.</span>
           </div>
           <textarea
             data-testid="artifact-content-input"
-            value={content}
-            onChange={(event) => onContentChange(event.target.value)}
+            aria-label="Markdown 본문"
+            value={document.body}
+            onChange={(event) => onContentChange(replaceDocumentBody(content, event.target.value))}
             disabled={disabled}
             spellCheck={false}
           />
@@ -145,28 +163,71 @@ function DocumentPreview({ document }: { document: GenericMarkdownDocument }) {
   );
 }
 
-function DocumentInformation({ document }: { document: GenericMarkdownDocument }) {
+function DocumentInformation({
+  document,
+  content,
+  onContentChange,
+  disabled,
+}: {
+  document: GenericMarkdownDocument;
+  content: string;
+  onContentChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  const updateCover = (field: "title" | "subtitle" | "company", value: string) =>
+    onContentChange(updateDocumentCoverField(content, field, value));
+
   return (
     <div className="generic-document-information">
-      <section>
+      <section className="document-metadata-editor">
         <header>
-          <span>DOCUMENT</span>
-          <h2>{document.title || "제목 없는 문서"}</h2>
-          <p>{document.subtitle}</p>
+          <span>DOCUMENT METADATA</span>
+          <h2>문서정보</h2>
+          <p>보호된 front matter는 아래 필드를 통해서만 변경됩니다.</p>
         </header>
-        <dl>
-          {document.info.map((item) => (
-            <div key={item.label}>
-              <dt>{item.label}</dt>
-              <dd>{item.value}</dd>
-            </div>
+        <div className="metadata-form-grid">
+          <label>
+            <span>표지 제목</span>
+            <input
+              value={document.title}
+              onChange={(event) => updateCover("title", event.target.value)}
+              disabled={disabled}
+            />
+          </label>
+          <label>
+            <span>부제</span>
+            <input
+              value={document.subtitle}
+              onChange={(event) => updateCover("subtitle", event.target.value)}
+              disabled={disabled}
+            />
+          </label>
+          <label>
+            <span>회사·기관</span>
+            <input
+              value={document.company}
+              onChange={(event) => updateCover("company", event.target.value)}
+              disabled={disabled}
+            />
+          </label>
+          {document.info.map((item, index) => (
+            <label key={`${item.label}-${index}`}>
+              <span>{item.label}</span>
+              <input
+                value={item.value}
+                onChange={(event) =>
+                  onContentChange(updateDocumentInfoValue(content, index, event.target.value))
+                }
+                disabled={disabled}
+              />
+            </label>
           ))}
-        </dl>
+        </div>
       </section>
       <section className="generic-changelog">
         <header>
           <h3>{document.changelog.length ? "개정 이력" : "개정 이력 없음"}</h3>
-          <span>{document.changelog.length} revisions</span>
+          <span>{document.changelog.length} revisions · 시스템 관리</span>
         </header>
         {document.changelog.map((entry) => (
           <article key={`${entry.version}-${entry.date}`}>

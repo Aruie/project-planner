@@ -6,7 +6,7 @@ import {
   type ArtifactResponse,
   type VersionResponse,
 } from "../../shared/api/models";
-import { Pending, SafeFeedback } from "../../shared/ui/SafeFeedback";
+import { BlockingProgress, SafeFeedback } from "../../shared/ui/SafeFeedback";
 import { GenericDocumentView } from "./GenericDocumentView";
 import {
   ManagedDocumentFactory,
@@ -420,14 +420,11 @@ export function ArtifactWorkspace({
                 />
               ) : documentView === "source" ? (
                 <label className="document-content-field">
-                  <span>문서 원문</span>
+                  <span>Markdown 본문</span>
                   <textarea
                     data-testid="artifact-content-input"
-                    placeholder={
-                      artifact
-                        ? "Draft 원문을 입력하세요."
-                        : "Front matter와 문서 내용을 입력하거나 문서를 불러오세요."
-                    }
+                    aria-label="Markdown 본문"
+                    placeholder={artifact ? "Draft 본문을 입력하세요." : "문서 본문을 입력하세요."}
                     value={content}
                     onChange={(event) => updateContent(event.target.value)}
                     disabled={!projectId}
@@ -460,7 +457,6 @@ export function ArtifactWorkspace({
           <span>{content.length.toLocaleString()}자</span>
           <span>{kind === "MarkdownDocument" ? "Word · DOCX" : "Excel · XLSX"}</span>
         </footer>
-        <Pending active={pending} />
         <SafeFeedback problem={problem} />
         {problem?.currentRevision ? (
           <p className="draft-conflict-banner" data-testid="draft-conflict-banner">
@@ -478,6 +474,17 @@ export function ArtifactWorkspace({
           onCreated={setLatestVersion}
         />
       ) : null}
+      <BlockingProgress
+        active={pending || exporting}
+        title={
+          exporting
+            ? "파일을 생성하고 있습니다"
+            : artifact
+              ? "임시저장 중입니다"
+              : "산출물을 생성하고 있습니다"
+        }
+        description="완료될 때까지 현재 화면에서 잠시 기다려 주세요."
+      />
     </section>
   );
 }

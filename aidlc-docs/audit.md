@@ -1742,3 +1742,17 @@ gitignore 에 필요없는건 당연히 좀 빼고 pycache 나 nodu_modules 나 
 **Context**: User-facing product title correction
 
 ---
+
+## Protected Front Matter and Blocking Operation UX
+**Timestamp**: 2026-09-03T16:23:17Z
+**User Input**: "그리고 원문편집은 프론트매터는 편집되면 안될거같은데 
+프론트매터는 UII 에서 관리되어야할부분이야 수정이 쉽지않아야하고 
+
+그리고 UI 해상도가낮아지면 가운데 도큐먼트부분 수직길이가 오른쪽 채팅에 비해 길어지네 
+채팅은 사이즈 잘 맞춰서 변환된느데
+
+그리고 임시저장ㄱ샅은거 눌렀을때 밑에 처리중 뜨는거 너무짜쳐 좀 모달로 해봐 이런건 하는중에 다른작업이 되면 안되자나"
+**AI Response**: "Generic/Requirements 원문편집에서 front matter를 제거하고 Markdown body만 편집하도록 변경했으며, body 수정 시 기존 front matter와 changelog를 그대로 재결합한다. 문서정보 화면에서 cover title/subtitle/company와 info value를 명시적 form field로 관리하고 개정이력은 시스템 관리로 표시한다. 문서 workspace와 AI chat panel을 동일 viewport height로 맞추고 문서 영역을 내부 scroll로 전환했다. 산출물 생성, 임시저장, 파일 생성 및 immutable version 생성 중에는 aria-modal blocking progress dialog가 전체 화면을 차단한다. Prettier, ESLint, TypeScript typecheck, Vitest 9 files/13 tests, Vite production build가 모두 통과했다."
+**Context**: Protected document metadata, responsive workspace height, and blocking async operation UX
+
+---
