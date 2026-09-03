@@ -1733,3 +1733,12 @@ gitignore 에 필요없는건 당연히 좀 빼고 pycache 나 nodu_modules 나 
 **Context**: Initial repository commit and generated-file exclusion clarification
 
 ---
+
+## Product Title Correction
+**Timestamp**: 2026-09-03T16:18:29Z
+**User Input**: "그리고 제목이 AIDLC 가 왜들어갓나모르겟네 
+그냥 산출물관리 프로그램인데?"
+**AI Response**: "README 제목과 설명, browser title, 로그인 화면 h1, sidebar brand에서 사용자 제품명으로 노출되던 AIDLC를 제거하고 `산출물 관리 프로그램`으로 정정했다. 일반 문서 표지의 제품 brand도 중립적인 `DOCUMENT`로 변경했다. 내부 package 이름, workbook schema, sample ID, AWS resource/environment 명칭은 사용자 제품 제목이 아니며 호환성과 이력 보존을 위해 유지했다. Frontend prettier, ESLint, TypeScript typecheck, Vitest 7 files/10 tests가 모두 통과했고 변경을 commit 8730793으로 기록했다."
+**Context**: User-facing product title correction
+
+---
