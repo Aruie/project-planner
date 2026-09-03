@@ -32,6 +32,21 @@ describe("ApiClient", () => {
     );
   });
 
+  it("explains when the running backend does not support a newly added API", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail: "Method Not Allowed" }), {
+        status: 405,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const client = new ApiClient("/api", () => undefined, fetcher);
+
+    await expect(client.delete("/projects/p/artifacts/a", {})).rejects.toMatchObject({
+      code: "API_METHOD_NOT_AVAILABLE",
+      message: "현재 실행 중인 백엔드가 이 기능을 지원하지 않습니다. 백엔드를 재시작해주세요.",
+    });
+  });
+
   it("sends a JSON delete confirmation and accepts an empty 204 response", async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     const client = new ApiClient("/api", () => undefined, fetcher);

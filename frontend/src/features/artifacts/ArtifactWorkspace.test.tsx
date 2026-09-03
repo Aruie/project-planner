@@ -21,7 +21,13 @@ const artifact: ArtifactResponse = {
 
 const detail = {
   ...artifact,
-  content: `---\ntitle: AIDLC 샘플 요구사항 정의서\ndocument_id: AIDLC-002\n---\n# 요구사항 정의서\n\n본문`,
+  content: `# AIDLC 샘플 요구사항 정의서
+
+## 목적
+개발 산출물을 버전별로 관리하고 추적성을 확인한다.
+
+## 요구사항
+- REQ-001: 관리자는 산출물을 저장할 수 있다.`,
 };
 
 describe("ArtifactWorkspace", () => {
@@ -53,7 +59,8 @@ describe("ArtifactWorkspace", () => {
     });
   });
 
-  it("shows initial loading and opens an existing document on the information-first unified tabs", async () => {
+  it("opens an existing document in preview and restores preview after tab changes", async () => {
+    const user = userEvent.setup();
     const get = vi
       .fn()
       .mockImplementation((path: string) =>
@@ -78,16 +85,28 @@ describe("ArtifactWorkspace", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("문서를 불러오는 중입니다");
     await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "개정이력" })).toHaveClass("active");
-    expect(screen.getByRole("button", { name: "미리보기" })).toBeEnabled();
+    const previewButton = screen.getByRole("button", { name: "미리보기" });
+    const historyButton = screen.getByRole("button", { name: "개정이력" });
+    expect(previewButton).toHaveClass("active");
+    expect(
+      screen.getByText("개발 산출물을 버전별로 관리하고 추적성을 확인한다."),
+    ).toBeInTheDocument();
+    await user.click(historyButton);
+    expect(historyButton).toHaveClass("active");
+    expect(screen.getByText("아직 생성된 버전이 없습니다.")).toBeInTheDocument();
+    await user.click(previewButton);
+    expect(previewButton).toHaveClass("active");
+    expect(
+      screen.getByText("개발 산출물을 버전별로 관리하고 추적성을 확인한다."),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "원문편집" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "버전비교" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "파일 생성" })).toBeEnabled();
-    expect(screen.getByText("아직 생성된 버전이 없습니다.")).toBeInTheDocument();
     expect(get).toHaveBeenCalledTimes(2);
   });
 
   it("renders immutable backend versions and their change summaries", async () => {
+    const user = userEvent.setup();
     const version: VersionResponse = {
       version_id: "version-2",
       version_number: 2,
@@ -120,6 +139,7 @@ describe("ArtifactWorkspace", () => {
     );
 
     await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "개정이력" }));
     expect(screen.getAllByText("v2")).toHaveLength(2);
     expect(screen.getByText("승인 기준과 테스트 연결을 보완함")).toBeInTheDocument();
     expect(screen.getByText("Draft revision 2")).toBeInTheDocument();

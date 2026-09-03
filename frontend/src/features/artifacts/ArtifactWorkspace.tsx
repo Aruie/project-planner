@@ -62,9 +62,7 @@ export function ArtifactWorkspace({
   const [pending, setPending] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(Boolean(initialArtifact));
-  const [documentView, setDocumentView] = useState<DocumentView>(
-    initialArtifact ? "information" : "preview",
-  );
+  const [documentView, setDocumentView] = useState<DocumentView>("preview");
   const [versionModalOpen, setVersionModalOpen] = useState(false);
   const [deletionModalOpen, setDeletionModalOpen] = useState(false);
   const [latestVersion, setLatestVersion] = useState<VersionResponse | null>(null);
@@ -114,7 +112,7 @@ export function ArtifactWorkspace({
         setContent(synchronizedContent);
         setSavedContent(sourceContent);
         setKind(detail.artifact_type);
-        setDocumentView("information");
+        setDocumentView("preview");
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -415,18 +413,6 @@ export function ArtifactWorkspace({
 
         <div className="draft-form">
           <div className="draft-form-row">
-            <label className="document-type-field">
-              <span>산출물 형식</span>
-              <select
-                data-testid="artifact-type-select"
-                value={kind}
-                onChange={(event) => setKind(event.target.value as typeof kind)}
-                disabled={!projectId || Boolean(artifact) || Boolean(initialTemplate)}
-              >
-                <option value="MarkdownDocument">Word 문서 (.docx)</option>
-                <option value="ExcelDocument">Excel 문서 (.xlsx)</option>
-              </select>
-            </label>
             <label className="document-title-field">
               <span>제목</span>
               <input
@@ -499,7 +485,6 @@ export function ArtifactWorkspace({
 
         <footer className="draft-panel-footer">
           <span>{content.length.toLocaleString()}자</span>
-          <span>{kind === "MarkdownDocument" ? "Word · DOCX" : "Excel · XLSX"}</span>
         </footer>
         <SafeFeedback problem={problem} />
         {problem?.currentRevision ? (

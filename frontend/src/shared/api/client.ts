@@ -76,6 +76,13 @@ export class ApiClient {
     } catch {
       return genericProblem();
     }
+    if (response.status === 405) {
+      return new ApiProblem({
+        code: "API_METHOD_NOT_AVAILABLE",
+        message: "현재 실행 중인 백엔드가 이 기능을 지원하지 않습니다. 백엔드를 재시작해주세요.",
+        retryable: false,
+      });
+    }
     return new ApiProblem(
       isApiProblem(payload)
         ? payload

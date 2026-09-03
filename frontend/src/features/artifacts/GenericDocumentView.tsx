@@ -63,15 +63,8 @@ export function GenericDocumentView({
       {view === "source" ? (
         <div className="requirements-source-editor">
           <div className="source-editor-heading">
-            <div>
-              <strong>Markdown 본문</strong>
-              <span>Front matter는 호환용으로 유지되며 직접 편집할 수 없습니다.</span>
-            </div>
+            <strong>Markdown 본문</strong>
             <span>{document.body.length.toLocaleString()}자</span>
-          </div>
-          <div className="frontmatter-lock-notice" role="note">
-            <strong>문서 메타데이터 보호됨</strong>
-            <span>표지 제목은 산출물 제목을 따르며 기관 정보는 프로젝트에서 관리합니다.</span>
           </div>
           <textarea
             data-testid="artifact-content-input"

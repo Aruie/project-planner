@@ -43,7 +43,7 @@ if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
   exit 1
 fi
 
-"$ROOT_DIR/run-backend.sh" &
+"$ROOT_DIR/run-backend.sh" --reload &
 BACKEND_PID=$!
 (
   cd "$FRONTEND_DIR"

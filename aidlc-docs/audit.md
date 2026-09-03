@@ -1784,3 +1784,35 @@ gitignore 에 필요없는건 당연히 좀 빼고 pycache 나 nodu_modules 나 
 **Context**: Completed project metadata ownership, synchronized document covers, and immutable history-only information view
 
 ---
+
+## UI Simplification, Preview Regression, and Sample Deletion Failure
+**Timestamp**: 2026-09-03T17:57:26Z
+**User Input**: "Front matter는 호환용으로 유지되며 직접 편집할 수 없습니다.
+표지 제목은 산출물 제목을 따르며 기관 정보는 프로젝트에서 관리합니다.
+
+산출물 형식은 변경도 불가능한건데
+굳이 UI 에잇을필요없을거같고
+
+이런 문구는 필요없을거같애
+
+
+
+미리보기가 갑자기 안되네?
+
+
+
+그리고 샘플 요구사항정의서 삭제하려니까
+
+요청에 실패했습니다 뜨네"
+**AI Response**: "불필요한 안내 문구와 변경 불가능한 산출물 형식 UI를 제거한다. 미리보기는 실제 tab 전환 test로 재현하고, 샘플 요구사항 삭제는 production DynamoDB adapter 경로까지 확인해 일반 오류의 원인을 수정한다."
+**Context**: UI cleanup and reported preview/deletion regressions
+
+---
+
+## UI Simplification, Preview Regression, and Sample Deletion Result
+**Timestamp**: 2026-09-03T18:09:56Z
+**User Input**: "N/A — result entry for the request recorded at 2026-09-03T17:57:26Z"
+**AI Response**: "Front matter 관련 안내와 metadata notice, 변경 불가능한 산출물 형식 select/footer 표시를 제거했다. 기존 문서는 미리보기를 기본 view로 열며 실제 sample과 같은 front matter 없는 Markdown으로 개정이력↔미리보기 전환 및 본문 render를 검증했다. 삭제 실패는 실행 중 backend가 DELETE endpoint 이전 버전이라 405를 반환한 것이 원인이었다. run-aidlc.sh에 backend --reload를 추가하고 405 응답에는 backend 재시작 안내를 표시한다. DynamoDB 실제 table key schema를 확인하고 artifact/version delete adapter tests를 추가했다. 사용자 프로세스는 종료하지 않았으며 최신 backend를 임시 port에서 실행해 실제 AWS sample artifact의 틀린 확인 제목이 400 ARTIFACT_DELETE_CONFIRMATION_MISMATCH를 반환함을 비파괴 검증했다. Frontend 11 files/22 tests와 Backend 84 tests, lint/typecheck/build/Ruff/shell syntax가 모두 통과했다."
+**Context**: Completed UI cleanup, preview restoration, and stale-backend deletion diagnosis
+
+---

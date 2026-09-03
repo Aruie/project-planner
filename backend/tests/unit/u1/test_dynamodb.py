@@ -7,7 +7,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 from app.domain.attachments import AttachmentMediaType, AttachmentObjectRef, AttachmentSize
-from app.domain.content import InlineContentRef
+from app.domain.content import InlineContentRef, content_ref_to_dict
 from app.domain.entities import Attachment, Draft, DraftRevision, Project, VersionSnapshot
 from app.domain.errors import DraftRevisionConflict, ImmutableSnapshotMutation
 from app.domain.identifiers import (
@@ -64,6 +64,23 @@ def test_replace_draft_maps_conditional_failure_to_conflict(tables: DynamoDbTabl
         DynamoDbArtifactRepository(client, tables).replace_draft(
             ProjectId.new(), artifact_id, DraftRevision(1), draft
         )
+
+
+def test_artifact_delete_uses_project_scoped_table_key(tables: DynamoDbTables) -> None:
+    client = Mock()
+    project_id = ProjectId.new()
+    artifact_id = ArtifactId.new()
+
+    DynamoDbArtifactRepository(client, tables).delete(project_id, artifact_id)
+
+    assert client.delete_item.call_args.kwargs == {
+        "TableName": "artifacts",
+        "Key": {
+            "project_id": {"S": str(project_id)},
+            "artifact_id": {"S": str(artifact_id)},
+        },
+        "ConditionExpression": "attribute_exists(artifact_id)",
+    }
 
 
 def test_version_append_rejects_existing_snapshot(tables: DynamoDbTables) -> None:
@@ -197,3 +214,42 @@ def test_attachment_read_uses_two_key_schema_and_checks_artifact_ownership(
         "project_id": {"S": str(project_id)},
         "attachment_id": {"S": str(attachment_id)},
     }
+
+
+def test_version_delete_for_artifact_uses_number_sort_key(tables: DynamoDbTables) -> None:
+    client = Mock()
+    artifact_id = ArtifactId.new()
+    version_id = VersionId.new()
+    reference = InlineContentRef.from_content("version body")
+    client.query.return_value = {
+        "Items": [
+            {
+                "artifact_id": {"S": str(artifact_id)},
+                "version_number": {"N": "3"},
+                "version_id": {"S": str(version_id)},
+                "payload": {
+                    "S": json.dumps(
+                        {
+                            "source_draft_revision": 4,
+                            "content_ref": content_ref_to_dict(reference),
+                            "title": "샘플 요구사항 정의서",
+                            "description": "",
+                            "artifact_type": "MarkdownDocument",
+                            "tags": ["sample"],
+                            "change_summary": "변경",
+                        }
+                    )
+                },
+            }
+        ]
+    }
+
+    DynamoDbVersionRepository(client, tables).delete_for_artifact(artifact_id)
+
+    client.delete_item.assert_called_once_with(
+        TableName="versions",
+        Key={
+            "artifact_id": {"S": str(artifact_id)},
+            "version_number": {"N": "3"},
+        },
+    )
