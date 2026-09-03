@@ -94,7 +94,7 @@ export function ArtifactDeletionModal({
           <div className="deletion-warning">
             <strong>다음 데이터가 모두 삭제됩니다.</strong>
             <ul>
-              <li>현재 Draft와 문서 정보</li>
+              <li>현재 편집 내용과 문서 정보</li>
               <li>모든 immutable version과 개정이력</li>
               <li>문서에 첨부된 모든 파일</li>
             </ul>
@@ -129,7 +129,7 @@ export function ArtifactDeletionModal({
       <BlockingProgress
         active={deleting}
         title="문서를 영구 삭제하고 있습니다"
-        description="Draft, 모든 버전과 첨부 파일을 정리하는 중입니다."
+        description="현재 편집 내용, 모든 버전과 첨부 파일을 정리하는 중입니다."
       />
     </div>
   );

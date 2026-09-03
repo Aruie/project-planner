@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from difflib import SequenceMatcher
 
 from app.domain.content import InlineContentRef, S3ContentRef, content_checksum, select_content_ref
@@ -36,6 +37,12 @@ from .models import (
     VersionResponse,
 )
 from .scope import ProjectScopeGuard
+
+_FRONT_MATTER = re.compile(r"\A\s*---\s*\r?\n[\s\S]*?\r?\n---(?:\s*\r?\n|$)")
+
+
+def _editable_markdown(source: str) -> str:
+    return _FRONT_MATTER.sub("", source, count=1)
 
 
 def _artifact_response(artifact: Artifact, draft: Draft) -> ArtifactResponse:
@@ -88,7 +95,12 @@ class LifecycleService:
         try:
             document_id = self._projects.allocate_public_document_id(project_id)
             artifact_id, draft_id = ArtifactId.new(), DraftId.new()
-            ref = self._store_content(project_id, artifact_id, content)
+            stored_content = (
+                _editable_markdown(content)
+                if metadata.artifact_type == "MarkdownDocument"
+                else content
+            )
+            ref = self._store_content(project_id, artifact_id, stored_content)
             draft = Draft(
                 draft_id,
                 artifact_id,
@@ -127,11 +139,16 @@ class LifecycleService:
         try:
             current = self._artifacts.get_draft(project_id, artifact_id)
             expected = DraftRevision(request.expected_revision)
+            stored_content = (
+                _editable_markdown(request.content)
+                if artifact.artifact_type == "MarkdownDocument"
+                else request.content
+            )
             replacement = Draft(
                 current.draft_id,
                 current.artifact_id,
                 expected.next(),
-                self._store_content(project_id, artifact_id, request.content),
+                self._store_content(project_id, artifact_id, stored_content),
                 current.attachment_ids,
                 request.title,
                 request.description,
@@ -288,9 +305,12 @@ class DiffService:
                 for name in ("title", "description", "artifact_type", "tags")
                 if left[name] != right[name]
             )
-            hunks, summary = self._hunks(
-                self._content(left["content_ref"]), self._content(right["content_ref"])
-            )
+            before = self._content(left["content_ref"])
+            after = self._content(right["content_ref"])
+            if artifact.artifact_type == "MarkdownDocument":
+                before = _editable_markdown(before)
+                after = _editable_markdown(after)
+            hunks, summary = self._hunks(before, after)
             return DiffResult(
                 left=request.left,
                 right=request.right,

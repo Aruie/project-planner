@@ -117,23 +117,21 @@ function DocumentPreview({
   let pageNumber = 0;
   return (
     <div className="document-preview">
-      {document.hasFrontMatter ? (
-        <section className="preview-cover a4-page">
-          <div className="preview-cover-brand">DOCUMENT</div>
-          <div className="preview-cover-title">
-            <h1>{documentTitle || "제목 없는 문서"}</h1>
-          </div>
-          <div className="preview-cover-info">
-            {projectFields.map((item) => (
-              <div key={item.label}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </div>
-            ))}
-          </div>
-          <footer>{projectInformation?.organization_name || "회사·기관 미입력"}</footer>
-        </section>
-      ) : null}
+      <section className="preview-cover a4-page">
+        <div className="preview-cover-brand">DOCUMENT</div>
+        <div className="preview-cover-title">
+          <h1>{documentTitle || "제목 없는 문서"}</h1>
+        </div>
+        <div className="preview-cover-info">
+          {projectFields.map((item) => (
+            <div key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+            </div>
+          ))}
+        </div>
+        <footer>{projectInformation?.organization_name || "회사·기관 미입력"}</footer>
+      </section>
 
       {document.toc.items.length ? (
         <section className="preview-toc a4-page">

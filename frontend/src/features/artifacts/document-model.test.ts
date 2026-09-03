@@ -3,9 +3,8 @@ import {
   GenericMarkdownDocument,
   buildDocumentExportSource,
   replaceDocumentBody,
+  stripDocumentMetadata,
   synchronizeDocumentTitle,
-  updateDocumentCoverField,
-  updateDocumentInfoValue,
 } from "./document-model";
 
 const source = `---
@@ -28,32 +27,31 @@ changelog:
 기존 내용`;
 
 describe("managed document protected metadata", () => {
-  it("replaces only the Markdown body and preserves the complete front matter", () => {
-    const next = replaceDocumentBody(source, "# 변경 본문\n\n변경 내용");
+  it("stores only the editable Markdown body when legacy front matter exists", () => {
+    const next = replaceDocumentBody(source, "# 변경 제목\n\n## 변경 내용\n\n설명");
 
-    expect(new GenericMarkdownDocument(next).frontMatter).toBe(
-      new GenericMarkdownDocument(source).frontMatter,
+    expect(next).toBe("# 변경 제목\n\n## 변경 내용\n\n설명");
+    expect(new GenericMarkdownDocument(next).frontMatter).toBe("");
+    expect(stripDocumentMetadata(source)).toBe("# 본문\n\n기존 내용");
+  });
+
+  it("builds the table of contents from level one and two Markdown headings", () => {
+    const document = new GenericMarkdownDocument(
+      "# 변경관리내역서\n\n## 변경 요약\n\n### 세부 항목\n\n## 승인 절차",
     );
-    expect(new GenericMarkdownDocument(next).body).toBe("# 변경 본문\n\n변경 내용");
-    expect(next).toContain('changes: "최초 작성"');
+
+    expect(document.toc).toEqual({
+      title: "목차",
+      items: ["변경관리내역서", "변경 요약", "승인 절차"],
+    });
   });
 
-  it("updates cover fields and info values without changing body or changelog", () => {
-    const withTitle = updateDocumentCoverField(source, "title", "새 제목: 검토본");
-    const next = updateDocumentInfoValue(withTitle, 0, "새 발주처");
-    const document = new GenericMarkdownDocument(next);
-
-    expect(document.title).toBe("새 제목: 검토본");
-    expect(document.info[0]?.value).toBe("새 발주처");
-    expect(document.body).toBe("# 본문\n\n기존 내용");
-    expect(document.changelog[0]?.changes).toBe("최초 작성");
-  });
-
-  it("synchronizes the managed cover title with the artifact title", () => {
+  it("keeps the artifact title out of the stored Markdown source", () => {
     const next = synchronizeDocumentTitle(source, "MarkdownDocument", "산출물 기준 제목");
     const document = new GenericMarkdownDocument(next);
 
-    expect(document.title).toBe("산출물 기준 제목");
+    expect(document.frontMatter).toBe("");
+    expect(document.title).toBe("");
     expect(document.body).toBe("# 본문\n\n기존 내용");
   });
 
@@ -74,5 +72,7 @@ describe("managed document protected metadata", () => {
       { label: "발주처", value: "발주처 B" },
     ]);
     expect(document.body).toBe("# 본문\n\n기존 내용");
+    expect(document.toc.items).toEqual(["본문"]);
+    expect(exported).not.toContain("changelog:");
   });
 });

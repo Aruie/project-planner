@@ -36,3 +36,13 @@ describe("predefined Excel document templates", () => {
     );
   });
 });
+
+describe("generic Word document template", () => {
+  it("stores only Markdown body content and derives a meaningful TOC heading", () => {
+    const draft = DocumentTemplateRegistry.create("generic-word");
+
+    expect(draft.content).toBe("## 문서 개요\n\n문서 내용을 작성하세요.");
+    expect(draft.content).not.toContain("---");
+    expect(draft.content).not.toContain("## 본문");
+  });
+});

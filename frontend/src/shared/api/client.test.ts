@@ -63,4 +63,21 @@ describe("ApiClient", () => {
       }),
     );
   });
+
+  it("prefers and decodes an RFC 5987 download filename", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response("file", {
+        status: 200,
+        headers: {
+          "Content-Disposition":
+            "attachment; filename=\"document.docx\"; filename*=UTF-8''%EB%B3%80%EA%B2%BD%EA%B4%80%EB%A6%AC%EB%82%B4%EC%97%AD%EC%84%9C.docx",
+        },
+      }),
+    );
+    const client = new ApiClient("/api", () => undefined, fetcher);
+
+    await expect(client.download("/exports/docx", {})).resolves.toMatchObject({
+      filename: "변경관리내역서.docx",
+    });
+  });
 });

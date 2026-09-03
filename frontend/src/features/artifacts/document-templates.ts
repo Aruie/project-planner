@@ -18,20 +18,6 @@ export abstract class DocumentTemplate {
   abstract readonly icon: "requirements" | "test" | "word" | "excel";
   abstract create(): TemplateDraft;
 
-  protected wordSource(title: string, tocItems: string[], body: string): string {
-    return `---
-cover:
-  title: ${title}
-
-toc:
-  title: 목차
-  items:
-${tocItems.map((item) => `    - ${item}`).join("\n")}
----
-
-${body}`;
-  }
-
   protected workbookSource(
     title: string,
     templateId: "requirements-definition" | "test-scenario" | "generic-excel",
@@ -155,7 +141,8 @@ export class GenericWordTemplate extends DocumentTemplate {
   readonly id = "generic-word";
   readonly category = "common" as const;
   readonly name = "일반 Word 문서";
-  readonly description = "표지, 개정이력, 목차가 포함된 자유 형식 DOCX 문서입니다.";
+  readonly description =
+    "프로젝트 정보 표지와 Markdown 제목 기반 목차를 제공하는 자유 형식 문서입니다.";
   readonly artifactType = "MarkdownDocument" as const;
   readonly icon = "word" as const;
   create(): TemplateDraft {
@@ -164,7 +151,7 @@ export class GenericWordTemplate extends DocumentTemplate {
       title: "새 Word 문서",
       description: this.description,
       artifactType: this.artifactType,
-      content: this.wordSource("새 Word 문서", ["본문"], "## 본문\n\n문서 내용을 작성하세요."),
+      content: "## 문서 개요\n\n문서 내용을 작성하세요.",
     };
   }
 }

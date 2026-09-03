@@ -12,6 +12,13 @@ type DiffRow = {
   kind: "added" | "removed" | "unchanged" | "modified";
 };
 
+const metadataLabel: Record<string, string> = {
+  title: "문서 제목",
+  description: "설명",
+  artifact_type: "문서 종류",
+  tags: "태그",
+};
+
 const rowsOf = (result: DiffResult): DiffRow[] => {
   const rows: DiffRow[] = [];
   let leftNumber = 1;
@@ -77,7 +84,6 @@ export function VersionDiffPanel({ api, projectId, artifactId }: Props) {
   const [versions, setVersions] = useState<VersionResponse[]>([]);
   const [selected, setSelected] = useState("");
   const [result, setResult] = useState<DiffResult | null>(null);
-  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
   const ready = Boolean(projectId && artifactId);
@@ -94,20 +100,6 @@ export function VersionDiffPanel({ api, projectId, artifactId }: Props) {
           }),
     );
 
-  const load = async () => {
-    if (!ready) return;
-    try {
-      setProblem(null);
-      const items = await api.get<VersionResponse[]>(
-        `/projects/${projectId}/artifacts/${artifactId}/versions`,
-      );
-      setVersions(items);
-      setSelected((current) => current || items.at(-1)?.version_id || "");
-    } catch (error) {
-      fail(error);
-    }
-  };
-
   useEffect(() => {
     if (!ready) return;
     const controller = new AbortController();
@@ -117,8 +109,9 @@ export function VersionDiffPanel({ api, projectId, artifactId }: Props) {
         controller.signal,
       )
       .then((items) => {
-        setVersions(items);
-        setSelected(items.at(-1)?.version_id ?? "");
+        const ordered = [...items].sort((a, b) => b.version_number - a.version_number);
+        setVersions(ordered);
+        setSelected(ordered[0]?.version_id ?? "");
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;
@@ -138,7 +131,6 @@ export function VersionDiffPanel({ api, projectId, artifactId }: Props) {
   const compare = async () => {
     if (!selected) return;
     setLoading(true);
-    setMessage("");
     try {
       setProblem(null);
       setResult(
@@ -159,63 +151,64 @@ export function VersionDiffPanel({ api, projectId, artifactId }: Props) {
   return (
     <section className="version-diff-panel">
       <header className="diff-toolbar">
-        <div>
-          <p>VERSION CONTROL</p>
-          <h2>변경 내용 비교</h2>
+        <div className="diff-heading">
+          <p>문서 변경 확인</p>
+          <h2>이전 버전과 현재 내용 비교</h2>
+          <span>확정해 둔 이전 버전을 선택하면 현재 편집 내용과 나란히 보여줍니다.</span>
         </div>
         <div className="diff-actions">
-          <button data-testid="version-list" disabled={!ready} onClick={() => void load()}>
-            새로고침
-          </button>
-          <select
-            aria-label="기준 버전"
-            data-testid="diff-right-select"
-            value={selected}
-            onChange={(event) => setSelected(event.target.value)}
-            disabled={!versions.length}
-          >
-            <option value="">기준 버전 선택</option>
-            {versions.map((version) => (
-              <option key={version.version_id} value={version.version_id}>
-                v{version.version_number} · revision {version.source_draft_revision}
-              </option>
-            ))}
-          </select>
+          <label>
+            <span>비교할 이전 버전</span>
+            <select
+              aria-label="비교할 이전 버전"
+              data-testid="diff-right-select"
+              value={selected}
+              onChange={(event) => setSelected(event.target.value)}
+              disabled={!versions.length}
+            >
+              <option value="">이전 버전 선택</option>
+              {versions.map((version) => (
+                <option key={version.version_id} value={version.version_id}>
+                  버전 {version.version_number} · {version.change_summary || "변경 내용 미입력"}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             className="primary-button"
             data-testid="diff-run-button"
             disabled={!selected || loading}
             onClick={() => void compare()}
           >
-            {loading ? "비교 중…" : "Draft와 비교"}
+            {loading ? "비교하는 중…" : "현재 내용과 비교"}
           </button>
         </div>
       </header>
 
-      {message ? <p className="diff-message">{message}</p> : null}
       <SafeFeedback problem={problem} />
 
       {result ? (
         <div className="diff-editor" aria-label="diff 결과">
           <div className="diff-editor-tabs">
             <div>
-              <span className="version-dot" />v{selectedVersion?.version_number ?? "-"} · 기준 버전
+              <span className="version-dot" />
+              버전 {selectedVersion?.version_number ?? "-"} · 이전 내용
             </div>
             <div>
               <span className="draft-dot" />
-              현재 Draft
+              현재 편집 내용
             </div>
           </div>
-          <div className="diff-summary">
-            <span className="added">+{result.summary.added}</span>
-            <span className="removed">-{result.summary.removed}</span>
-            <span>{result.summary.unchanged} unchanged</span>
+          <div className="diff-summary" aria-label="변경 요약">
+            <span className="added">추가 {result.summary.added}줄</span>
+            <span className="removed">삭제 {result.summary.removed}줄</span>
+            <span>동일 {result.summary.unchanged}줄</span>
           </div>
           {result.metadata_changes.length ? (
             <div className="metadata-diff">
               {result.metadata_changes.map((change) => (
                 <div key={change.field}>
-                  <strong>{change.field}</strong>
+                  <strong>{metadataLabel[change.field] ?? change.field}</strong>
                   <del>{String(change.before)}</del>
                   <ins>{String(change.after)}</ins>
                 </div>
@@ -223,8 +216,10 @@ export function VersionDiffPanel({ api, projectId, artifactId }: Props) {
             </div>
           ) : null}
           <div className="diff-columns">
-            <div className="diff-column-head">v{selectedVersion?.version_number ?? "-"}</div>
-            <div className="diff-column-head">Draft</div>
+            <div className="diff-column-head">
+              이전 버전 {selectedVersion?.version_number ?? "-"}
+            </div>
+            <div className="diff-column-head">현재 편집 내용</div>
             {rows.map((row, index) => (
               <div className="diff-row" key={`${index}-${row.leftNumber}-${row.rightNumber}`}>
                 <div
@@ -254,8 +249,8 @@ export function VersionDiffPanel({ api, projectId, artifactId }: Props) {
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M8 3 4 7l4 4M4 7h10a4 4 0 0 1 4 4v1M16 21l4-4-4-4M20 17H10a4 4 0 0 1-4-4v-1" />
           </svg>
-          <strong>비교할 버전을 선택하세요</strong>
-          <span>기준 버전은 왼쪽, 현재 Draft는 오른쪽에 표시됩니다.</span>
+          <strong>비교할 이전 버전을 선택하세요</strong>
+          <span>선택한 이전 버전과 현재 편집 내용을 나란히 확인할 수 있습니다.</span>
         </div>
       )}
     </section>

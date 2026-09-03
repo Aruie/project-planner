@@ -16,6 +16,7 @@ import {
   RequirementsDefinitionDocument,
   SpreadsheetDocument,
   buildDocumentExportSource,
+  stripDocumentMetadata,
   synchronizeDocumentTitle,
 } from "./document-model";
 import { RequirementsDocumentView } from "./RequirementsDocumentView";
@@ -138,14 +139,13 @@ export function ArtifactWorkspace({
         setArtifact(detail);
         setTitle(detail.title);
         setSavedTitle(detail.title);
-        const sourceContent = detail.content ?? "";
-        const sourceDocument = ManagedDocumentFactory.create(sourceContent, detail.artifact_type);
-        const synchronizedContent =
-          sourceDocument.title === detail.title
-            ? sourceContent
-            : synchronizeDocumentTitle(sourceContent, detail.artifact_type, detail.title);
-        setContent(synchronizedContent);
-        setSavedContent(sourceContent);
+        const storedContent = detail.content ?? "";
+        const normalizedContent =
+          detail.artifact_type === "MarkdownDocument"
+            ? stripDocumentMetadata(storedContent)
+            : storedContent;
+        setContent(normalizedContent);
+        setSavedContent(storedContent);
         setKind(detail.artifact_type);
         setDocumentView("preview");
       })
@@ -156,7 +156,7 @@ export function ArtifactWorkspace({
             ? error
             : new ApiProblem({
                 code: "DETAIL_LOAD_FAILED",
-                message: "Draft 원문을 불러오지 못했습니다.",
+                message: "문서 원문을 불러오지 못했습니다.",
                 retryable: true,
               }),
         );
@@ -192,7 +192,7 @@ export function ArtifactWorkspace({
     setArtifact(null);
     setKind("MarkdownDocument");
     setTitle(document.title || file.name.replace(/\.[^.]+$/, ""));
-    setContent(source);
+    setContent(stripDocumentMetadata(source));
     setProblem(null);
     onArtifact("");
   };
@@ -543,7 +543,7 @@ export function ArtifactWorkspace({
             <div className="document-loading" role="status" aria-live="polite">
               <span className="document-spinner" aria-hidden="true" />
               <strong>문서를 불러오는 중입니다</strong>
-              <span>Draft 원문과 버전 정보를 준비하고 있습니다.</span>
+              <span>문서 원문과 버전 정보를 준비하고 있습니다.</span>
             </div>
           ) : documentView === "information" && artifact ? (
             <ActualVersionHistory versions={versions} />
@@ -567,7 +567,7 @@ export function ArtifactWorkspace({
               activeView={documentView === "preview" ? "requirements" : "source"}
               showNavigation={false}
             />
-          ) : content.trim() && (documentModel.hasFrontMatter || Boolean(artifact)) ? (
+          ) : content.trim() ? (
             <GenericDocumentView
               content={content}
               onContentChange={updateContent}
@@ -645,7 +645,7 @@ function ActualVersionHistory({ versions }: { versions: VersionResponse[] }) {
         <div>
           <span>VERSION HISTORY</span>
           <h3 id="actual-version-history-title">개정이력</h3>
-          <p>새 버전 생성 시 저장된 immutable version 정보입니다.</p>
+          <p>새 버전을 만들 때 확정한 문서 기록입니다.</p>
         </div>
         <strong>{versions.length}개 버전</strong>
       </header>
@@ -663,7 +663,7 @@ function ActualVersionHistory({ versions }: { versions: VersionResponse[] }) {
                   <p>{version.title}</p>
                 </div>
                 <div className="actual-version-meta">
-                  <span>Draft revision {version.source_draft_revision}</span>
+                  <span>저장 기준 {version.source_draft_revision}차 수정본</span>
                   <time dateTime={hasCreatedAt ? version.created_at : undefined}>
                     {hasCreatedAt ? createdAt.toLocaleString("ko-KR") : "생성 시각 정보 없음"}
                   </time>

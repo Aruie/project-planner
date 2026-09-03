@@ -1,5 +1,7 @@
 from base64 import b64decode, b64encode
+from pathlib import Path
 from typing import Annotated
+from urllib.parse import quote
 
 import boto3
 from fastapi import APIRouter, Depends, Response
@@ -15,6 +17,17 @@ from .attachments import AttachmentService
 from .docx import docx_export
 from .models import RenderModel
 from .renderers import xlsx_export
+
+
+def _download_disposition(filename: str) -> str:
+    clean = Path(filename.replace("\\", "/")).name.replace("\r", "").replace("\n", "")
+    if not clean:
+        clean = "document"
+    if clean.isascii():
+        return f'attachment; filename="{clean.replace(chr(34), "")}"'
+    fallback = f"document{Path(clean).suffix}"
+    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(clean, safe='')}"
+
 
 router = APIRouter(prefix="/projects/{project_id}/artifacts/{artifact_id}", tags=["rendering"])
 
@@ -126,7 +139,7 @@ def export_xlsx(
     return Response(
         content=result.content,
         media_type=result.content_type,
-        headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
+        headers={"Content-Disposition": _download_disposition(result.filename)},
     )
 
 
@@ -143,5 +156,5 @@ def export_docx(
     return Response(
         content=result.content,
         media_type=result.content_type,
-        headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
+        headers={"Content-Disposition": _download_disposition(result.filename)},
     )

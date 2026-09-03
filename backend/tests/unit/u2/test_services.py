@@ -1,6 +1,7 @@
-from app.domain.entities import Project
+from app.domain.content import InlineContentRef
+from app.domain.entities import DraftRevision, Project, VersionSnapshot
 from app.domain.errors import ArtifactNotFound
-from app.domain.identifiers import ArtifactId, DocumentIdPrefix, ProjectId
+from app.domain.identifiers import ArtifactId, DocumentIdPrefix, ProjectId, VersionId
 from app.features.artifacts.errors import ApiProblem
 from app.features.artifacts.models import (
     ArtifactMetadata,
@@ -75,6 +76,50 @@ def test_lifecycle_revision_version_diff_and_trace_gap() -> None:
     )
     gaps = trace_service.gaps(project.project_id, ("S1", "S2"), ("R1",), ("T1", "T2"))
     assert gaps.story_ids == ("S2",) and gaps.test_case_ids == ("T2",)
+
+
+def test_markdown_storage_and_diff_exclude_front_matter() -> None:
+    project = Project(ProjectId.new(), "project", DocumentIdPrefix("PRJ"))
+    projects = FakeProjectRepository(project)
+    artifacts = FakeArtifactRepository()
+    versions = FakeVersionRepository()
+    storage = FakeStorage()
+    lifecycle = LifecycleService(projects, artifacts, storage)
+    diff_service = DiffService(projects, artifacts, versions, storage)
+    legacy = "---\ncover:\n  title: 예전 제목\n---\n# 문서\n\n같은 내용"
+
+    created = lifecycle.create(
+        project.project_id,
+        ArtifactMetadata(title="문서", artifact_type="MarkdownDocument"),
+        legacy,
+    )
+    artifact_id = ArtifactId.parse(created.artifact_id)
+    assert lifecycle.get(project.project_id, artifact_id).content == "# 문서\n\n같은 내용"
+
+    current = artifacts.get_draft(project.project_id, artifact_id)
+    legacy_version = VersionSnapshot(
+        VersionId.new(),
+        artifact_id,
+        1,
+        DraftRevision(1),
+        InlineContentRef.from_content(
+            "---\ncover:\n  title: 다른 legacy 제목\ntoc:\n  items:\n    - 문서\n---\n"
+            "# 문서\n\n같은 내용"
+        ),
+        title=current.title,
+        artifact_type="MarkdownDocument",
+    )
+    versions.append(legacy_version)
+    result = diff_service.compare(
+        project.project_id,
+        artifact_id,
+        DiffRequest(
+            left=DiffSourceRequest(kind="version", version_id=str(legacy_version.version_id)),
+            right=DiffSourceRequest(kind="draft"),
+        ),
+    )
+
+    assert result.summary == {"added": 0, "removed": 0, "unchanged": 3}
 
 
 def test_draft_conflict_preserves_current_draft() -> None:

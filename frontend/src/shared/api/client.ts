@@ -40,7 +40,10 @@ export class ApiClient {
     const response = await this.raw("POST", path, { body, signal });
     if (!response.ok) throw await this.problem(response);
     const disposition = response.headers.get("content-disposition") ?? "";
-    const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? "export.bin";
+    const encodedFilename = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+    const filename = encodedFilename
+      ? decodeURIComponent(encodedFilename)
+      : (/filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? "export.bin");
     return { blob: await response.blob(), filename };
   }
 

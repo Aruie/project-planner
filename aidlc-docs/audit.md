@@ -1859,3 +1859,48 @@ gitignore 에 필요없는건 당연히 좀 빼고 pycache 나 nodu_modules 나 
 **Context**: Completed consolidated document editing UX, active-document AI approval flow, autosave, and full validation
 
 ---
+
+## Version Comparison, Document Metadata, TOC, and File Export Request
+**Timestamp**: 2026-09-03T19:00:10Z
+**User Input**: "변경 내용 비교에 새로고침이란 버튼이있는데
+UI 가 개판이에요?
+
+그리고 draft 와 비교라는말 너무 개발용어자나
+
+전버전과 비교라든지 좀 그런식으로해봐
+
+그리고 프론트매터 부분은 diff 에서안나와야하지않을까?
+그건 수정할수있는게아닌데
+
+애시당초 프론트매터는 md 에 저장안되어도 될거같다니까
+
+db 에저장하는거아니야?
+
+목차도 사실 문서에서 추출 가능한거자나 문서에서
+# 과 ## 추출해서 가져오면 되는거니까
+
+미리보기 할때나 디비정보를 기반으로 프론트매터에있는거처럼 보여주기 하면되는거고
+
+
+
+2. 그리고 미리보기 목차에서 본문이란말이 왜나오지?
+새로문서만들어쓴ㄴ데
+
+3. 파일생성 누르면
+요청을 처리하지 못햇습니다 뜨는데?
+
+docs 어려우면
+일단 pdf 라도 만들어서 다운받게해봐
+미리보기 그대로 출력하게하면되자나"
+**AI Response**: "버전 비교 UI와 사용자 용어를 정리하고, 비편집 metadata/front matter를 저장 원문 및 diff에서 제외하며, #/## 기반 목차를 구성한다. 파일 생성 실패 원인을 확인해 DOCX 경로를 우선 복구하고 필요하면 preview 기반 PDF fallback을 제공한 뒤 일괄 검증한다."
+**Context**: Version comparison UX, content model, table of contents, and export reliability
+
+---
+
+## Version Comparison, Document Metadata, TOC, and File Export Result
+**Timestamp**: 2026-09-03T19:21:43Z
+**User Input**: "N/A — result entry for the request recorded at 2026-09-03T19:00:10Z"
+**AI Response**: "버전 비교 화면에서 새로고침 버튼과 Draft/VERSION CONTROL/unchanged 같은 개발 용어를 제거하고, 최신 확정 버전을 기본 선택하는 '이전 버전과 현재 내용 비교' UI로 정리했다. Markdown front matter는 frontend와 backend create/update 저장 경계에서 제거하고 기존 문서는 열 때 body-only로 자동저장되며, legacy version과 현재 문서 비교에서도 front matter를 제외한다. 표지는 artifact/project DB 정보를 기준으로 항상 표시하고 목차는 Markdown #/## heading에서 추출한다. 신규 Word 문서의 '본문' placeholder는 '문서 개요'로 변경했다. 파일 생성 실패는 DOCX 생성기가 아니라 한글 filename을 HTTP header에 직접 넣은 것이 원인이었으며, RFC 5987 Content-Disposition과 frontend filename* decoding으로 수정했다. 실제 한글 template DOCX smoke는 37,350-byte PK 파일을 생성했고 PDF fallback은 필요하지 않았다. Frontend 12 files/27 tests, ESLint, TypeScript, production build와 Backend 86 tests, Ruff가 모두 통과했다. Playwright/Chromium은 사용하지 않았고 사용자 실행 process를 종료하지 않았다."
+**Context**: Completed user-facing version comparison, body-only Markdown persistence, heading-derived TOC, and reliable Korean DOCX download
+
+---

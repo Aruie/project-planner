@@ -63,81 +63,14 @@ const splitDocument = (source: string): { frontMatter: string; body: string } =>
   return match ? { frontMatter: match[1], body: match[2] } : { frontMatter: "", body: source };
 };
 
-export type EditableCoverField = "title" | "subtitle" | "company";
+export const stripDocumentMetadata = (source: string): string => splitDocument(source).body;
 
 const joinDocument = (frontMatter: string, body: string): string =>
   frontMatter ? `---\n${frontMatter}\n---\n${body}` : body;
 
-export const replaceDocumentBody = (source: string, body: string): string => {
-  const parts = splitDocument(source);
-  return joinDocument(parts.frontMatter, body);
-};
+export const replaceDocumentBody = (_source: string, body: string): string => body;
 
 const yamlScalar = (value: string): string => JSON.stringify(value);
-
-export const updateDocumentCoverField = (
-  source: string,
-  field: EditableCoverField,
-  value: string,
-): string => {
-  const parts = splitDocument(source);
-  const lines = parts.frontMatter ? parts.frontMatter.split("\n") : [];
-  let coverIndex = lines.findIndex((line) => /^cover:\s*$/.test(line));
-  if (coverIndex < 0) {
-    lines.unshift("cover:");
-    coverIndex = 0;
-  }
-  let end = lines.length;
-  for (let index = coverIndex + 1; index < lines.length; index += 1) {
-    if (/^\S/.test(lines[index])) {
-      end = index;
-      break;
-    }
-  }
-  const fieldPattern = new RegExp(`^  ${field}:\\s*`);
-  const fieldIndex = lines.findIndex(
-    (line, index) => index > coverIndex && index < end && fieldPattern.test(line),
-  );
-  const nextLine = `  ${field}: ${yamlScalar(value)}`;
-  if (fieldIndex >= 0) lines[fieldIndex] = nextLine;
-  else lines.splice(coverIndex + 1, 0, nextLine);
-  return joinDocument(lines.join("\n"), parts.body);
-};
-
-export const updateDocumentInfoValue = (
-  source: string,
-  infoIndex: number,
-  value: string,
-): string => {
-  const parts = splitDocument(source);
-  if (!parts.frontMatter) return source;
-  const lines = parts.frontMatter.split("\n");
-  let inCover = false;
-  let inInfo = false;
-  let currentInfo = -1;
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (/^cover:\s*$/.test(line)) {
-      inCover = true;
-      continue;
-    }
-    if (inCover && /^\S/.test(line)) break;
-    if (inCover && /^ {2}info:\s*$/.test(line)) {
-      inInfo = true;
-      continue;
-    }
-    if (!inInfo) continue;
-    if (/^ {4}- label:\s*/.test(line)) {
-      currentInfo += 1;
-      continue;
-    }
-    if (currentInfo === infoIndex && /^ {6}value:\s*/.test(line)) {
-      lines[index] = `      value: ${yamlScalar(value)}`;
-      return joinDocument(lines.join("\n"), parts.body);
-    }
-  }
-  return source;
-};
 
 const section = (frontMatter: string, name: string, nextNames: string[]): string => {
   const start = frontMatter.search(new RegExp(`^${name}:\\s*$`, "m"));
@@ -193,22 +126,13 @@ const parseChangeLog = (frontMatter: string): ChangeLogEntry[] => {
   return result;
 };
 
-const parseToc = (frontMatter: string): DocumentToc => {
-  const block = section(frontMatter, "toc", []);
-  const items: string[] = [];
-  let inItems = false;
-  for (const line of block.split("\n")) {
-    if (/^\s{2}items:\s*$/.test(line)) {
-      inItems = true;
-      continue;
-    }
-    if (inItems) {
-      const item = /^\s{4}-\s*(.+)$/.exec(line);
-      if (item) items.push(unquote(item[1]));
-    }
-  }
-  return { title: scalar(block, "title"), items };
-};
+const markdownToc = (body: string): DocumentToc => ({
+  title: "목차",
+  items: body
+    .split(/\r?\n/)
+    .map((line) => /^(?:#|##)\s+(.+?)\s*$/.exec(line)?.[1].trim() ?? "")
+    .filter(Boolean),
+});
 
 const tableCells = (line: string): string[] =>
   line
@@ -289,7 +213,7 @@ export abstract class ManagedDocument {
       info: parseInfo(coverBlock),
     };
     this.changelog = parseChangeLog(parts.frontMatter);
-    this.toc = parseToc(parts.frontMatter);
+    this.toc = markdownToc(parts.body);
   }
 
   abstract get kind(): DocumentKind;
@@ -304,9 +228,6 @@ export abstract class ManagedDocument {
   }
   get info(): CoverInfo[] {
     return this.cover.info;
-  }
-  get hasFrontMatter(): boolean {
-    return Boolean(this.frontMatter);
   }
 }
 
@@ -434,9 +355,7 @@ export const synchronizeDocumentTitle = (
     const document = new SpreadsheetDocument(source);
     return SpreadsheetDocument.stringify({ ...document.workbook, title });
   }
-  return splitDocument(source).frontMatter
-    ? updateDocumentCoverField(source, "title", title)
-    : source;
+  return stripDocumentMetadata(source);
 };
 
 export type ProjectCoverInformation = {
@@ -451,20 +370,9 @@ export const buildDocumentExportSource = (
   title: string,
   project: ProjectCoverInformation,
 ): string => {
-  const parts = splitDocument(source);
-  const lines = parts.frontMatter ? parts.frontMatter.split("\n") : [];
-  const coverIndex = lines.findIndex((line) => /^cover:\s*$/.test(line));
-  if (coverIndex >= 0) {
-    let end = lines.length;
-    for (let index = coverIndex + 1; index < lines.length; index += 1) {
-      if (/^\S/.test(lines[index])) {
-        end = index;
-        break;
-      }
-    }
-    lines.splice(coverIndex, end - coverIndex);
-  }
-  const cover = [
+  const body = stripDocumentMetadata(source);
+  const tocItems = markdownToc(body).items;
+  const metadata = [
     "cover:",
     `  title: ${yamlScalar(title)}`,
     `  company: ${yamlScalar(project.organizationName)}`,
@@ -475,6 +383,9 @@ export const buildDocumentExportSource = (
     `      value: ${yamlScalar(project.contractorName)}`,
     "    - label: 발주처",
     `      value: ${yamlScalar(project.clientName)}`,
+    ...(tocItems.length
+      ? ["toc:", "  title: 목차", "  items:", ...tocItems.map((item) => `    - ${item}`)]
+      : []),
   ];
-  return joinDocument([...cover, ...lines].join("\n"), parts.body);
+  return joinDocument(metadata.join("\n"), body);
 };

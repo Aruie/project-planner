@@ -61,6 +61,36 @@ describe("ArtifactWorkspace", () => {
     });
   });
 
+  it("previews a new Word document with a database title and heading-derived TOC", () => {
+    const template = {
+      templateId: "generic-word",
+      title: "새 Word 문서",
+      description: "일반 문서",
+      artifactType: "MarkdownDocument" as const,
+      content: "## 문서 개요\n\n문서 내용을 작성하세요.",
+    };
+
+    render(
+      <ArtifactWorkspace
+        api={{} as ApiClient}
+        projectId="sample-project"
+        projectInformation={null}
+        initialTemplate={template}
+        artifacts={[]}
+        loadingArtifacts={false}
+        listProblem={null}
+        onArtifactsChange={vi.fn()}
+        onArtifact={vi.fn()}
+        onDeleted={vi.fn()}
+        onDocumentContextChange={vi.fn()}
+        aiDocumentUpdate={null}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { level: 1, name: "새 Word 문서" })).toBeInTheDocument();
+    expect(screen.getAllByText("문서 개요")).toHaveLength(2);
+    expect(screen.queryByText("본문")).not.toBeInTheDocument();
+  });
   it("opens an existing document in preview and restores preview after tab changes", async () => {
     const user = userEvent.setup();
     const get = vi
@@ -152,7 +182,7 @@ describe("ArtifactWorkspace", () => {
     await user.click(screen.getByRole("button", { name: "개정이력" }));
     expect(screen.getAllByText("v2")).toHaveLength(2);
     expect(screen.getByText("승인 기준과 테스트 연결을 보완함")).toBeInTheDocument();
-    expect(screen.getByText("Draft revision 2")).toBeInTheDocument();
+    expect(screen.getByText("저장 기준 2차 수정본")).toBeInTheDocument();
   });
 
   it("publishes the active document, applies an AI update, and autosaves it", async () => {

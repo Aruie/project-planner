@@ -126,7 +126,7 @@ export function VersionCreationModal({
       >
         <header>
           <div>
-            <p>VERSION CONTROL</p>
+            <p>버전 기록</p>
             <h2 id="version-modal-title">새 버전 생성</h2>
             <span>
               {baseline
