@@ -1904,3 +1904,30 @@ docs 어려우면
 **Context**: Completed user-facing version comparison, body-only Markdown persistence, heading-derived TOC, and reliable Korean DOCX download
 
 ---
+
+## Header Title Editing and Named PDF Export Request
+**Timestamp**: 2026-09-03T19:37:32Z
+**User Input**: "이제 좀 안정화된거같은데 제목수정이 모든 탭에 다딸려나오는데
+이거 그냥 수정창없애고 위에 문서 제목부분이샂나 버전이랑있는거 거기 옆에서 수정버튼넣는게나을거같애
+그 수정때 많이쓰는연필 아이콘같은걸로? 암튼 이쁘게
+
+그리고 왜 파일생성하면 .bin 파일이나와? 머야 이거
+pdf 가 나와야지
+생성전 파일명 물어보게하는데
+디폴트를 일단 입력해놔줘
+디폴트는 문서명에서 공백은 _ 로 대체하고
+뒤에 v3 같은 버전붙이게
+
+.pdf 는 알아서써질거니 안써도되게하고"
+**AI Response**: "반복 제목 입력란을 제거하고 상단 문서 제목 옆 연필 편집으로 이동한다. 파일 생성 전 filename modal을 표시하며 문서명 공백을 underscore로 바꾸고 최신 버전을 붙인 기본 이름을 제공한다. 확장자는 입력받지 않고 실제 PDF response와 .pdf 다운로드 이름을 구현한 뒤 전체 검증한다."
+**Context**: Header title editing and explicit PDF export workflow
+
+---
+
+## Header Title Editing and Named PDF Export Result
+**Timestamp**: 2026-09-03T19:53:05Z
+**User Input**: "N/A — result entry for the request recorded at 2026-09-03T19:37:32Z"
+**AI Response**: "모든 탭 위에 반복되던 제목 입력 row를 제거하고 상단 문서 제목 옆 연필 아이콘으로 inline 편집·저장·취소하도록 변경했다. PDF 생성 버튼은 파일명 확인 modal을 열고 문서명 공백을 underscore로 변환한 `{문서명}_v{최신버전}` 기본값을 제공하며, 입력란에서는 .pdf를 자동 제거하고 생성 요청에서 자동 추가한다. 기존 .bin fallback을 사용하지 않고 response filename이 노출되지 않아도 입력 basename.pdf를 사용한다. Backend에 reportlab 4.4.3을 고정 추가하고 한국어 CID font 기반 A4 표지·목차·Markdown·표 PDF renderer와 /exports/pdf endpoint를 구현했다. Frontend 12 files/28 tests, ESLint, TypeScript, production build와 Backend 88 tests, Ruff가 모두 통과했다. PDF unit/route tests에서 %PDF bytes, application/pdf, 한글 RFC 5987 filename을 검증했다. Playwright/Chromium은 사용하지 않았고 사용자 실행 process를 종료하지 않았다."
+**Context**: Completed header-only title editing and explicit named PDF export workflow
+
+---

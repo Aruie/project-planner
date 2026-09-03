@@ -4344,3 +4344,215 @@ pre {
   font-size: 0.82rem;
   font-weight: 700;
 }
+
+/* Header title editing and named PDF export */
+.document-title-edit-button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: #526278;
+  border: 1px solid #d8e0ea;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.document-title-edit-button:hover:not(:disabled) {
+  color: #285fbd;
+  border-color: #9bb8e8;
+  background: #edf4ff;
+}
+
+.document-title-edit-button svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.document-title-editor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: min(520px, 48vw);
+}
+
+.document-title-editor input {
+  width: min(420px, 40vw);
+  height: 34px;
+  padding: 0 10px;
+  color: #1d2939;
+  border: 1px solid #8fb0e5;
+  border-radius: 7px;
+  outline: 3px solid rgb(53 106 230 / 10%);
+  background: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.document-title-editor button {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.title-editor-save {
+  color: #fff;
+  border: 1px solid #356ae6;
+  background: #356ae6;
+}
+
+.title-editor-cancel {
+  color: #657287;
+  border: 1px solid #d8e0ea;
+  background: #fff;
+}
+
+.file-generation-backdrop {
+  position: fixed;
+  z-index: 1120;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(16 24 40 / 70%);
+  backdrop-filter: blur(3px);
+}
+
+.file-generation-modal {
+  width: min(520px, 100%);
+  overflow: hidden;
+  color: #344054;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgb(16 24 40 / 35%);
+}
+
+.file-generation-modal > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid #e3e8ef;
+  background: #f8fafc;
+}
+
+.file-generation-modal header span {
+  color: #356ae6;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.file-generation-modal header h2 {
+  margin: 5px 0 0;
+  color: #1d2939;
+  font-size: 1.08rem;
+}
+
+.file-generation-modal header p {
+  margin: 7px 0 0;
+  color: #748196;
+  font-size: 0.65rem;
+}
+
+.file-generation-modal header button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: #6b778a;
+  border: 0;
+  border-radius: 7px;
+  background: #e9edf3;
+  font-size: 1.1rem;
+}
+
+.file-generation-modal > label {
+  display: grid;
+  gap: 8px;
+  padding: 24px;
+}
+
+.file-generation-modal > label > span {
+  color: #526278;
+  font-size: 0.67rem;
+  font-weight: 700;
+}
+
+.pdf-filename-field {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #a9bddb;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgb(53 106 230 / 8%);
+}
+
+.pdf-filename-field input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  color: #25344a;
+  border: 0;
+  outline: 0;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.pdf-filename-field strong {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  padding: 0 12px;
+  color: #526278;
+  border-left: 1px solid #d8e1ec;
+  background: #f1f4f8;
+  font-size: 0.7rem;
+}
+
+.file-generation-modal label small {
+  color: #8490a2;
+  font-size: 0.59rem;
+}
+
+.file-generation-modal > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 15px 24px;
+  border-top: 1px solid #e3e8ef;
+  background: #f8fafc;
+}
+
+.file-generation-modal > footer button {
+  min-width: 88px;
+  height: 36px;
+  border-radius: 7px;
+}
+
+.file-generation-modal > footer .secondary {
+  color: #5f6d82;
+  border: 1px solid #d8e0ea;
+  background: #fff;
+}
+
+@media (max-width: 760px) {
+  .document-title-editor {
+    min-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .document-title-editor input {
+    width: 100%;
+  }
+}

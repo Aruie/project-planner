@@ -16,6 +16,7 @@ from app.persistence.s3 import S3ObjectStorageAdapter
 from .attachments import AttachmentService
 from .docx import docx_export
 from .models import RenderModel
+from .pdf import pdf_export
 from .renderers import xlsx_export
 
 
@@ -114,6 +115,12 @@ class DocxRequest(BaseModel):
     filename: str = "document.docx"
 
 
+class PdfRequest(BaseModel):
+    model: RenderModel
+    markdown: str = ""
+    filename: str = "document.pdf"
+
+
 @router.post("/preview", response_model=RenderModel)
 def preview(
     project_id: str,
@@ -153,6 +160,23 @@ def export_docx(
     ProjectId.parse(project_id)
     ArtifactId.parse(artifact_id)
     result = docx_export(request.markdown, request.filename)
+    return Response(
+        content=result.content,
+        media_type=result.content_type,
+        headers={"Content-Disposition": _download_disposition(result.filename)},
+    )
+
+
+@router.post("/exports/pdf")
+def export_pdf(
+    project_id: str,
+    artifact_id: str,
+    request: PdfRequest,
+    _: Annotated[AdminPrincipal, Depends(require_admin)],
+) -> Response:
+    ProjectId.parse(project_id)
+    ArtifactId.parse(artifact_id)
+    result = pdf_export(request.model, request.markdown, request.filename)
     return Response(
         content=result.content,
         media_type=result.content_type,

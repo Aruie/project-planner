@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ArtifactWorkspace } from "./ArtifactWorkspace";
@@ -51,7 +51,9 @@ describe("ArtifactWorkspace", () => {
 
     expect(screen.getByTestId("artifact-create-button")).toBeDisabled();
     view.rerender(<ArtifactWorkspace {...properties} projectId="p" />);
+    await user.click(screen.getByTestId("artifact-title-edit-button"));
     await user.type(screen.getByTestId("artifact-title-input"), "문서");
+    await user.click(screen.getByRole("button", { name: "제목 저장" }));
     await user.click(screen.getByTestId("artifact-create-button"));
 
     expect(post).toHaveBeenCalledTimes(1);
@@ -137,8 +139,74 @@ describe("ArtifactWorkspace", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "원문편집" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "버전비교" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "파일 생성" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "PDF 생성" })).toBeEnabled();
     expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it("opens a filename modal and requests a named PDF export", async () => {
+    const user = userEvent.setup();
+    const version: VersionResponse = {
+      version_id: "version-3",
+      version_number: 3,
+      source_draft_revision: 3,
+      created_at: "2026-09-03T10:30:00+00:00",
+      title: artifact.title,
+      description: "sample",
+      tags: ["sample"],
+      change_summary: "최종 검토",
+    };
+    const get = vi
+      .fn()
+      .mockImplementation((path: string) =>
+        Promise.resolve(path.endsWith("/versions") ? [version] : detail),
+      );
+    const download = vi.fn().mockReturnValue(new Promise(() => undefined));
+
+    render(
+      <ArtifactWorkspace
+        api={{ get, download } as unknown as ApiClient}
+        projectId="sample-project"
+        projectInformation={null}
+        initialArtifact={artifact}
+        artifacts={[artifact]}
+        loadingArtifacts={false}
+        listProblem={null}
+        onArtifactsChange={vi.fn()}
+        onArtifact={vi.fn()}
+        onDeleted={vi.fn()}
+        onDocumentContextChange={vi.fn()}
+        aiDocumentUpdate={null}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByText("문서를 불러오는 중입니다")).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("artifact-title-input")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "PDF 생성" }));
+
+    const dialog = screen.getByRole("dialog", { name: "파일 이름을 확인하세요" });
+    const filename = within(dialog).getByTestId("pdf-filename-input");
+    expect(filename).toHaveValue("AIDLC_샘플_요구사항_정의서_v3");
+    expect(within(dialog).getByText(".pdf")).toBeInTheDocument();
+
+    await user.clear(filename);
+    await user.type(filename, "최종 보고서.pdf");
+    expect(filename).toHaveValue("최종 보고서");
+    await user.click(within(dialog).getByRole("button", { name: "PDF 생성" }));
+
+    await waitFor(() =>
+      expect(download).toHaveBeenCalledWith(
+        "/projects/sample-project/artifacts/sample-artifact/exports/pdf",
+        expect.objectContaining({
+          markdown: detail.content,
+          filename: "최종 보고서.pdf",
+          model: expect.objectContaining({
+            cover: expect.objectContaining({ title: artifact.title }),
+          }),
+        }),
+      ),
+    );
   });
 
   it("renders immutable backend versions and their change summaries", async () => {

@@ -17,3 +17,5 @@ ATTACHMENT_SCOPE_MISMATCH = RenderProblem(
 )
 XLSX_EXPORT_FAILED = RenderProblem("XLSX_EXPORT_FAILED", "Excel 내보내기에 실패했습니다.")
 DOCX_EXPORT_FAILED = RenderProblem("DOCX_EXPORT_FAILED", "DOCX 내보내기에 실패했습니다.")
+
+PDF_EXPORT_FAILED = RenderProblem("PDF_EXPORT_FAILED", "PDF 내보내기에 실패했습니다.")

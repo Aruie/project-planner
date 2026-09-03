@@ -15,10 +15,11 @@ import {
   ManagedDocumentFactory,
   RequirementsDefinitionDocument,
   SpreadsheetDocument,
-  buildDocumentExportSource,
   stripDocumentMetadata,
   synchronizeDocumentTitle,
 } from "./document-model";
+import { FileGenerationModal } from "./FileGenerationModal";
+import { defaultPdfFilename } from "./file-generation";
 import { RequirementsDocumentView } from "./RequirementsDocumentView";
 import { SpreadsheetDocumentView } from "./SpreadsheetDocumentView";
 import { type TemplateDraft } from "./document-templates";
@@ -71,6 +72,10 @@ export function ArtifactWorkspace({
   const [documentView, setDocumentView] = useState<DocumentView>("preview");
   const [versionModalOpen, setVersionModalOpen] = useState(false);
   const [deletionModalOpen, setDeletionModalOpen] = useState(false);
+  const [titleEditorOpen, setTitleEditorOpen] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(title);
+  const [fileGenerationOpen, setFileGenerationOpen] = useState(false);
+  const [pdfFilename, setPdfFilename] = useState("");
   const [latestVersion, setLatestVersion] = useState<VersionResponse | null>(null);
   const [versions, setVersions] = useState<VersionResponse[]>([]);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
@@ -103,6 +108,23 @@ export function ArtifactWorkspace({
   const updateTitle = (value: string) => {
     setTitle(value);
     setContent((current) => synchronizeDocumentTitle(current, kind, value));
+  };
+
+  const openTitleEditor = () => {
+    setTitleDraft(title);
+    setTitleEditorOpen(true);
+  };
+
+  const commitTitle = () => {
+    const next = titleDraft.trim();
+    if (!next) return;
+    updateTitle(next);
+    setTitleEditorOpen(false);
+  };
+
+  const openFileGeneration = () => {
+    setPdfFilename(defaultPdfFilename(title, latestVersion?.version_number ?? 1));
+    setFileGenerationOpen(true);
   };
 
   useEffect(() => {
@@ -321,81 +343,66 @@ export function ArtifactWorkspace({
 
   const generateFile = async () => {
     if (!artifact || exporting) return;
+    const baseName = pdfFilename
+      .trim()
+      .replace(/\.pdf$/i, "")
+      .replace(/[\\/:*?"<>|]+/g, "_");
+    if (!baseName) return;
     setExporting(true);
     setProblem(null);
     try {
-      const safeTitle = (title.trim() || "document").replace(/[\\/:*?"<>|]+/g, "-");
-      const path = `/projects/${projectId}/artifacts/${artifact.artifact_id}/exports/${kind === "MarkdownDocument" ? "docx" : "xlsx"}`;
-      const body =
-        kind === "MarkdownDocument"
-          ? {
-              markdown: buildDocumentExportSource(content, title.trim(), {
-                taskName: projectInformation?.task_name || projectInformation?.name || "",
-                contractorName: projectInformation?.contractor_name ?? "",
-                clientName: projectInformation?.client_name ?? "",
-                organizationName: projectInformation?.organization_name ?? "",
-              }),
-              filename: `${safeTitle}.docx`,
-            }
-          : {
-              model: {
-                cover: {
-                  public_document_id: artifact.public_document_id,
-                  title: title.trim(),
-                  description: artifact.description ?? "",
-                  artifact_type: artifact.artifact_type,
-                  task_name: projectInformation?.task_name || projectInformation?.name || "",
-                  contractor_name: projectInformation?.contractor_name ?? "",
-                  client_name: projectInformation?.client_name ?? "",
-                  organization_name: projectInformation?.organization_name ?? "",
-                },
-                change_history: latestVersion
-                  ? [
-                      {
-                        version_number: latestVersion.version_number,
-                        source_draft_revision: artifact.revision,
-                      },
-                    ]
-                  : [],
-                body_blocks:
-                  documentModel instanceof SpreadsheetDocument
-                    ? documentModel.workbook.sheets.map((sheet) => ({
-                        kind: "table",
-                        content: sheet.name,
-                        rows: [
-                          sheet.columns.map((column) => column.label),
-                          ...sheet.rows.map((row) =>
-                            sheet.columns.map((column) => String(row[column.key] ?? "")),
-                          ),
-                        ],
-                      }))
-                    : [{ kind: "paragraph", content, rows: [] }],
-                attachment_ids: [],
-              },
-              template_kind:
-                documentModel instanceof SpreadsheetDocument &&
-                documentModel.workbook.templateId === "requirements-definition"
-                  ? "RequirementsDefinition"
-                  : documentModel instanceof SpreadsheetDocument &&
-                      documentModel.workbook.templateId === "test-scenario"
-                    ? "TestScenarioResult"
-                    : "GenericExcel",
-            };
-      const result = await api.download(path, body);
+      const renderModel = {
+        cover: {
+          public_document_id: artifact.public_document_id,
+          title: title.trim(),
+          description: artifact.description ?? "",
+          artifact_type: artifact.artifact_type,
+          task_name: projectInformation?.task_name || projectInformation?.name || "",
+          contractor_name: projectInformation?.contractor_name ?? "",
+          client_name: projectInformation?.client_name ?? "",
+          organization_name: projectInformation?.organization_name ?? "",
+        },
+        change_history: versions.map((version) => ({
+          version_number: version.version_number,
+          source_draft_revision: version.source_draft_revision,
+        })),
+        body_blocks:
+          documentModel instanceof SpreadsheetDocument
+            ? documentModel.workbook.sheets.map((sheet) => ({
+                kind: "table",
+                content: sheet.name,
+                rows: [
+                  sheet.columns.map((column) => column.label),
+                  ...sheet.rows.map((row) =>
+                    sheet.columns.map((column) => String(row[column.key] ?? "")),
+                  ),
+                ],
+              }))
+            : [],
+        attachment_ids: [],
+      };
+      const result = await api.download(
+        `/projects/${projectId}/artifacts/${artifact.artifact_id}/exports/pdf`,
+        {
+          model: renderModel,
+          markdown: kind === "MarkdownDocument" ? content : "",
+          filename: `${baseName}.pdf`,
+        },
+      );
       const href = URL.createObjectURL(result.blob);
       const anchor = window.document.createElement("a");
       anchor.href = href;
-      anchor.download = result.filename;
+      anchor.download = result.filename.endsWith(".pdf") ? result.filename : `${baseName}.pdf`;
       anchor.click();
-
       URL.revokeObjectURL(href);
+      setFileGenerationOpen(false);
     } catch (error) {
       setProblem(
         error instanceof ApiProblem
           ? error
           : new ApiProblem({
-              code: "EXPORT_FAILED",
-              message: "파일을 생성하지 못했습니다.",
+              code: "PDF_EXPORT_FAILED",
+              message: "PDF 파일을 생성하지 못했습니다.",
               retryable: true,
             }),
       );
@@ -436,7 +443,58 @@ export function ArtifactWorkspace({
               <span>{artifact ? "DOCUMENT" : "NEW DOCUMENT"}</span>
             </div>
             <div className="document-title-line">
-              <h2>{artifact ? artifact.title : "새 산출물 작성"}</h2>
+              {titleEditorOpen ? (
+                <form
+                  className="document-title-editor"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    commitTitle();
+                  }}
+                >
+                  <input
+                    autoFocus
+                    data-testid="artifact-title-input"
+                    aria-label="문서 제목"
+                    value={titleDraft}
+                    onChange={(event) => setTitleDraft(event.target.value)}
+                    disabled={!projectId || pending || autoSaving}
+                  />
+                  <button
+                    type="submit"
+                    className="title-editor-save"
+                    aria-label="제목 저장"
+                    disabled={!titleDraft.trim()}
+                  >
+                    저장
+                  </button>
+                  <button
+                    type="button"
+                    className="title-editor-cancel"
+                    aria-label="제목 수정 취소"
+                    onClick={() => setTitleEditorOpen(false)}
+                  >
+                    취소
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <h2>{title || "새 산출물 작성"}</h2>
+                  <button
+                    type="button"
+                    className="document-title-edit-button"
+                    data-testid="artifact-title-edit-button"
+                    aria-label="문서 제목 수정"
+                    title="문서 제목 수정"
+                    disabled={!projectId || pending || autoSaving}
+                    onClick={openTitleEditor}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="m4 16-.8 4.8L8 20l10.6-10.6a2.1 2.1 0 0 0 0-3L17.6 5a2.1 2.1 0 0 0-3 0L4 16Z" />
+                      <path d="m13.5 6.5 4 4" />
+                    </svg>
+                  </button>
+                </>
+              )}
               {artifact ? (
                 <strong className="revision-badge">REVISION {artifact.revision}</strong>
               ) : null}
@@ -489,9 +547,9 @@ export function ArtifactWorkspace({
                 <button
                   className="file-generate-button"
                   disabled={loadingDetail || exporting || autoSaving}
-                  onClick={() => void generateFile()}
+                  onClick={openFileGeneration}
                 >
-                  {exporting ? "파일 생성 중…" : "파일 생성"}
+                  PDF 생성
                 </button>
                 <button
                   className="delete-document-button"
@@ -526,19 +584,6 @@ export function ArtifactWorkspace({
         </nav>
 
         <div className="draft-form">
-          <div className="draft-form-row">
-            <label className="document-title-field">
-              <span>제목</span>
-              <input
-                data-testid="artifact-title-input"
-                placeholder="산출물 제목을 입력하세요"
-                value={title}
-                onChange={(event) => updateTitle(event.target.value)}
-                disabled={!projectId}
-              />
-            </label>
-          </div>
-
           {loadingDetail ? (
             <div className="document-loading" role="status" aria-live="polite">
               <span className="document-spinner" aria-hidden="true" />
@@ -583,7 +628,7 @@ export function ArtifactWorkspace({
               <textarea
                 data-testid="artifact-content-input"
                 aria-label="Markdown 본문"
-                placeholder={artifact ? "Draft 본문을 입력하세요." : "문서 본문을 입력하세요."}
+                placeholder={artifact ? "문서 본문을 입력하세요." : "문서 내용을 입력하세요."}
                 value={content}
                 onChange={(event) => updateContent(event.target.value)}
                 disabled={!projectId}
@@ -607,6 +652,14 @@ export function ArtifactWorkspace({
           </p>
         ) : null}
       </div>
+      <FileGenerationModal
+        open={Boolean(artifact && fileGenerationOpen)}
+        filename={pdfFilename}
+        generating={exporting}
+        onFilenameChange={setPdfFilename}
+        onClose={() => setFileGenerationOpen(false)}
+        onGenerate={() => void generateFile()}
+      />
       {artifact && versionModalOpen ? (
         <VersionCreationModal
           open={versionModalOpen}
@@ -631,7 +684,7 @@ export function ArtifactWorkspace({
       ) : null}
       <BlockingProgress
         active={pending || exporting}
-        title={exporting ? "파일을 생성하고 있습니다" : "산출물을 생성하고 있습니다"}
+        title={exporting ? "PDF를 생성하고 있습니다" : "산출물을 생성하고 있습니다"}
         description="완료될 때까지 현재 화면에서 잠시 기다려 주세요."
       />
     </section>
