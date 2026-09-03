@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 from botocore.exceptions import ClientError
@@ -176,6 +177,18 @@ class DynamoDbArtifactRepository:
             raise PersistenceOutcomeUnknown("Artifact list outcome is unknown") from error
         return tuple(self._artifact(item) for item in response.get("Items", []))
 
+    def delete(self, project_id: ProjectId, artifact_id: ArtifactId) -> None:
+        try:
+            self._client.delete_item(
+                TableName=self._tables.artifacts,
+                Key={"project_id": {"S": str(project_id)}, "artifact_id": {"S": str(artifact_id)}},
+                ConditionExpression="attribute_exists(artifact_id)",
+            )
+        except ClientError as error:
+            if _error_code(error) == "ConditionalCheckFailedException":
+                raise ArtifactNotFound("Artifact does not exist") from error
+            raise PersistenceOutcomeUnknown("Artifact delete outcome is unknown") from error
+
     def replace_draft(self, project_id, artifact_id, expected_revision, replacement):
         if replacement.revision != expected_revision.next():
             raise ValueError("Replacement Draft revision must increment expected revision by one")
@@ -270,6 +283,7 @@ class DynamoDbVersionRepository:
     def append(self, snapshot: VersionSnapshot) -> VersionSnapshot:
         payload = {
             "source_draft_revision": snapshot.source_draft_revision.value,
+            "created_at": snapshot.created_at.isoformat(),
             "content_ref": _content_payload(snapshot.content_ref),
             "title": snapshot.title,
             "description": snapshot.description,
@@ -313,6 +327,19 @@ class DynamoDbVersionRepository:
             raise PersistenceOutcomeUnknown("Version list outcome is unknown") from error
         return tuple(self._version(item) for item in response.get("Items", []))
 
+    def delete_for_artifact(self, artifact_id: ArtifactId) -> None:
+        for snapshot in self.list_for_artifact(artifact_id):
+            try:
+                self._client.delete_item(
+                    TableName=self._tables.artifact_versions,
+                    Key={
+                        "artifact_id": {"S": str(artifact_id)},
+                        "version_number": {"N": str(snapshot.version_number)},
+                    },
+                )
+            except ClientError as error:
+                raise PersistenceOutcomeUnknown("Version delete outcome is unknown") from error
+
     def _version(self, item: dict[str, Any]) -> VersionSnapshot:
         data = _payload(item)
         return VersionSnapshot(
@@ -321,6 +348,11 @@ class DynamoDbVersionRepository:
             int(item["version_number"]["N"]),
             DraftRevision(int(data["source_draft_revision"])),
             content_ref_from_dict(data["content_ref"]),
+            created_at=(
+                datetime.fromisoformat(str(data["created_at"]))
+                if data.get("created_at")
+                else datetime.fromtimestamp(0, UTC)
+            ),
             title=str(data["title"]),
             description=str(data["description"]),
             artifact_type=str(data["artifact_type"]),
@@ -455,6 +487,40 @@ class DynamoDbAttachmentRepository:
                 str(data["checksum"]),
             ),
         )
+
+    def list_for_artifact(self, project_id: ProjectId, artifact_id: ArtifactId):
+        from app.domain.identifiers import AttachmentId
+
+        try:
+            response = self._client.query(
+                TableName=self._tables.attachments,
+                KeyConditionExpression="project_id = :project_id",
+                ExpressionAttributeValues={":project_id": {"S": str(project_id)}},
+            )
+        except ClientError as error:
+            raise PersistenceOutcomeUnknown("Attachment list outcome is unknown") from error
+        return tuple(
+            self.get(
+                project_id,
+                artifact_id,
+                AttachmentId.parse(_item_string(item, "attachment_id")),
+            )
+            for item in response.get("Items", [])
+            if _item_string(item, "artifact_id") == str(artifact_id)
+        )
+
+    def delete_for_artifact(self, project_id: ProjectId, artifact_id: ArtifactId) -> None:
+        for attachment in self.list_for_artifact(project_id, artifact_id):
+            try:
+                self._client.delete_item(
+                    TableName=self._tables.attachments,
+                    Key={
+                        "project_id": {"S": str(project_id)},
+                        "attachment_id": {"S": str(attachment.attachment_id)},
+                    },
+                )
+            except ClientError as error:
+                raise PersistenceOutcomeUnknown("Attachment delete outcome is unknown") from error
 
 
 class DynamoDbAiSessionRepository:

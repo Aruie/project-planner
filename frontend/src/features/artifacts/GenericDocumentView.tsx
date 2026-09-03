@@ -210,35 +210,22 @@ function DocumentInformation({
               disabled={disabled}
             />
           </label>
-          {document.info.map((item, index) => (
-            <label key={`${item.label}-${index}`}>
-              <span>{item.label}</span>
-              <input
-                value={item.value}
-                onChange={(event) =>
-                  onContentChange(updateDocumentInfoValue(content, index, event.target.value))
-                }
-                disabled={disabled}
-              />
-            </label>
-          ))}
+          {document.info
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => !/문\s*서\s*버\s*전|document\s*version/i.test(item.label))
+            .map(({ item, index }) => (
+              <label key={`${item.label}-${index}`}>
+                <span>{item.label}</span>
+                <input
+                  value={item.value}
+                  onChange={(event) =>
+                    onContentChange(updateDocumentInfoValue(content, index, event.target.value))
+                  }
+                  disabled={disabled}
+                />
+              </label>
+            ))}
         </div>
-      </section>
-      <section className="generic-changelog">
-        <header>
-          <h3>{document.changelog.length ? "개정 이력" : "개정 이력 없음"}</h3>
-          <span>{document.changelog.length} revisions · 시스템 관리</span>
-        </header>
-        {document.changelog.map((entry) => (
-          <article key={`${entry.version}-${entry.date}`}>
-            <span>{entry.version}</span>
-            <div>
-              <strong>{entry.date}</strong>
-              <p>{entry.changes}</p>
-            </div>
-            <em>{entry.author}</em>
-          </article>
-        ))}
       </section>
     </div>
   );

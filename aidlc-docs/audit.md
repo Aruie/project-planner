@@ -1756,3 +1756,11 @@ gitignore 에 필요없는건 당연히 좀 빼고 pycache 나 nodu_modules 나 
 **Context**: Protected document metadata, responsive workspace height, and blocking async operation UX
 
 ---
+
+## Excel Templates, Immutable Version History, and Permanent Deletion
+**Timestamp**: 2026-09-03T17:20:07Z
+**User Input**: "요구사항 정의서와 테스트 시나리오는 Markdown/Word가 아닌 구조화된 Excel 양식으로 제공한다. Front matter의 문서 버전과 changelog를 UI 개정이력으로 사용하지 않고 실제 backend immutable version API와 연결하며, 새 버전 생성 시 입력한 change_summary가 즉시 표시되게 한다. 실제 version이 없으면 버전 없음 상태를 표시한다. 문서 삭제는 제목 재입력 방식의 강한 확인 modal과 backend 영구 삭제 API로 구현하고 전체 frontend/backend 검증 후 커밋한다. Playwright/Chromium은 사용하지 않고 user-run process는 종료하지 않는다."
+**AI Response**: "요구사항 정의서와 테스트 시나리오를 각각 14개/10개 업무 컬럼의 aidlc.workbook/v1 ExcelDocument template으로 전환했다. Front matter 문서 버전 편집 및 changelog 기반 개정이력을 제거하고 backend immutable version의 created_at/change_summary를 실제 개정이력에 연결했다. 제목 exact confirmation을 frontend와 backend 양쪽에서 검증하는 permanent DELETE를 구현했으며 Draft, 모든 versions, attachments와 object refs를 정리한다. Frontend Prettier/ESLint/TypeScript, Vitest 10 files/18 tests, production build와 Backend Ruff/pytest 79 tests가 모두 통과했다."
+**Context**: Document template format correction, authoritative version history, and strong permanent deletion workflow
+
+---

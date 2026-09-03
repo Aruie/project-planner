@@ -24,18 +24,7 @@ cover:
   title: ${title}
   subtitle: ""
   company: ""
-  info:
-    - label: 문 서 버 전
-      value: v0.1
-
-changelog:
-  title: 개정 이력
-  columns:
-    - 버전
-    - 개정일
-    - 주요 변경 내용
-    - 작성자
-  rows: []
+  info: []
 
 toc:
   title: 목차
@@ -45,6 +34,34 @@ ${tocItems.map((item) => `    - ${item}`).join("\n")}
 
 ${body}`;
   }
+
+  protected workbookSource(
+    title: string,
+    templateId: "requirements-definition" | "test-scenario" | "generic-excel",
+    sheetName: string,
+    columns: { key: string; label: string; type?: "text" | "number" | "date" }[],
+    firstRow: Record<string, string>,
+  ): string {
+    return JSON.stringify(
+      {
+        schema: "aidlc.workbook/v1",
+        workbook: {
+          title,
+          templateId,
+          sheets: [
+            {
+              id: "sheet1",
+              name: sheetName,
+              columns: columns.map((column) => ({ type: "text", ...column })),
+              rows: [firstRow],
+            },
+          ],
+        },
+      },
+      null,
+      2,
+    );
+  }
 }
 
 export class RequirementsDefinitionTemplate extends DocumentTemplate {
@@ -52,23 +69,46 @@ export class RequirementsDefinitionTemplate extends DocumentTemplate {
   readonly category = "predefined" as const;
   readonly name = "요구사항 정의서";
   readonly description = "요구사항, 수용기준, 테스트 연결을 구조적으로 관리합니다.";
-  readonly artifactType = "MarkdownDocument" as const;
+  readonly artifactType = "ExcelDocument" as const;
   readonly icon = "requirements" as const;
   create(): TemplateDraft {
+    const columns = [
+      { key: "requirement_id", label: "요구사항 ID" },
+      { key: "business_area", label: "업무영역" },
+      { key: "business_name", label: "업무명" },
+      { key: "requirement_type", label: "요구사항 유형" },
+      { key: "requirement_name", label: "요구사항 명" },
+      { key: "category", label: "구분" },
+      { key: "approach", label: "적용방안" },
+      { key: "changes", label: "변경사항" },
+      { key: "source", label: "출처" },
+      { key: "reflected", label: "반영여부" },
+      { key: "acceptance_criteria", label: "수용기준" },
+      { key: "unit_test_ids", label: "단위테스트 ID" },
+      { key: "integration_test_ids", label: "통합테스트 ID" },
+      { key: "verification_documents", label: "검증 문서" },
+    ];
     return {
       templateId: this.id,
       title: this.name,
       description: this.description,
       artifactType: this.artifactType,
-      content: this.wordSource(
-        this.name,
-        ["요구사항 리스트"],
-        `## 요구사항 리스트
-
-| 요구사항 ID | 업무영역 | 업무명 | 요구사항 유형 | 요구사항 명 | 구분 | 적용방안 | 변경사항 | 출처 | 반영여부 | 수용기준 | 단위테스트 ID | 통합테스트 ID | 검증 문서 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| REQ-001 |  |  | 기능 |  | 신규 |  |  |  | 미반영 |  | - | - | - |`,
-      ),
+      content: this.workbookSource(this.name, this.id, "요구사항", columns, {
+        requirement_id: "REQ-001",
+        business_area: "",
+        business_name: "",
+        requirement_type: "기능",
+        requirement_name: "",
+        category: "신규",
+        approach: "",
+        changes: "",
+        source: "",
+        reflected: "미반영",
+        acceptance_criteria: "",
+        unit_test_ids: "-",
+        integration_test_ids: "-",
+        verification_documents: "-",
+      }),
     };
   }
 }
@@ -78,27 +118,38 @@ export class TestScenarioTemplate extends DocumentTemplate {
   readonly category = "predefined" as const;
   readonly name = "테스트 시나리오";
   readonly description = "사전조건, 수행 절차, 기대 결과와 요구사항 연결을 관리합니다.";
-  readonly artifactType = "MarkdownDocument" as const;
+  readonly artifactType = "ExcelDocument" as const;
   readonly icon = "test" as const;
   create(): TemplateDraft {
+    const columns = [
+      { key: "test_id", label: "테스트 ID" },
+      { key: "category", label: "구분" },
+      { key: "scenario", label: "시나리오" },
+      { key: "precondition", label: "사전조건" },
+      { key: "steps", label: "수행 절차" },
+      { key: "expected_result", label: "기대 결과" },
+      { key: "requirement_ids", label: "요구사항 ID" },
+      { key: "status", label: "상태" },
+      { key: "actual_result", label: "실제 결과" },
+      { key: "note", label: "비고" },
+    ];
     return {
       templateId: this.id,
       title: this.name,
       description: this.description,
       artifactType: this.artifactType,
-      content: this.wordSource(
-        this.name,
-        ["테스트 개요", "테스트 시나리오"],
-        `## 테스트 개요
-
-테스트 범위와 목적을 작성하세요.
-
-## 테스트 시나리오
-
-| 테스트 ID | 구분 | 시나리오 | 사전조건 | 수행 절차 | 기대 결과 | 요구사항 ID | 상태 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| TC-001 | 기능 |  |  |  |  | REQ-001 | 작성중 |`,
-      ),
+      content: this.workbookSource(this.name, this.id, "테스트 시나리오", columns, {
+        test_id: "TC-001",
+        category: "기능",
+        scenario: "",
+        precondition: "",
+        steps: "",
+        expected_result: "",
+        requirement_ids: "REQ-001",
+        status: "작성중",
+        actual_result: "",
+        note: "",
+      }),
     };
   }
 }
@@ -134,6 +185,7 @@ export class GenericExcelTemplate extends DocumentTemplate {
         schema: "aidlc.workbook/v1",
         workbook: {
           title: "새 Excel 문서",
+          templateId: "generic-excel",
           sheets: [
             {
               id: "sheet1",

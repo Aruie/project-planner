@@ -7,6 +7,7 @@ import {
   type VersionResponse,
 } from "../../shared/api/models";
 import { BlockingProgress, SafeFeedback } from "../../shared/ui/SafeFeedback";
+import { ArtifactDeletionModal } from "./ArtifactDeletionModal";
 import { GenericDocumentView } from "./GenericDocumentView";
 import {
   ManagedDocumentFactory,
@@ -32,6 +33,7 @@ type Props = {
   listProblem: ApiProblem | null;
   onArtifactsChange: (items: ArtifactResponse[]) => void;
   onArtifact: (id: string, artifact?: ArtifactResponse) => void;
+  onDeleted: (artifactId: string) => void;
 };
 
 export function ArtifactWorkspace({
@@ -42,6 +44,7 @@ export function ArtifactWorkspace({
   artifacts,
   onArtifactsChange,
   onArtifact,
+  onDeleted,
 }: Props) {
   const [artifact, setArtifact] = useState<ArtifactResponse | null>(initialArtifact);
   const [title, setTitle] = useState(initialArtifact?.title ?? initialTemplate?.title ?? "");
@@ -56,7 +59,9 @@ export function ArtifactWorkspace({
   const [loadingDetail, setLoadingDetail] = useState(Boolean(initialArtifact));
   const [documentView, setDocumentView] = useState<DocumentView>("information");
   const [versionModalOpen, setVersionModalOpen] = useState(false);
+  const [deletionModalOpen, setDeletionModalOpen] = useState(false);
   const [latestVersion, setLatestVersion] = useState<VersionResponse | null>(null);
+  const [versions, setVersions] = useState<VersionResponse[]>([]);
   const [problem, setProblem] = useState<ApiProblem | null>(null);
   const documentModel = useMemo(
     () => ManagedDocumentFactory.create(content, kind),
@@ -114,13 +119,16 @@ export function ArtifactWorkspace({
         `/projects/${projectId}/artifacts/${initialArtifactId}/versions`,
         controller.signal,
       )
-      .then((versions) =>
-        setLatestVersion(
-          [...versions].sort((a, b) => b.version_number - a.version_number)[0] ?? null,
-        ),
-      )
+      .then((items) => {
+        const ordered = [...items].sort((a, b) => b.version_number - a.version_number);
+        setVersions(ordered);
+        setLatestVersion(ordered[0] ?? null);
+      })
       .catch(() => {
-        if (!controller.signal.aborted) setLatestVersion(null);
+        if (!controller.signal.aborted) {
+          setVersions([]);
+          setLatestVersion(null);
+        }
       });
 
     return () => controller.abort();
@@ -223,7 +231,14 @@ export function ArtifactWorkspace({
                     : [{ kind: "paragraph", content, rows: [] }],
                 attachment_ids: [],
               },
-              template_kind: "GenericExcel",
+              template_kind:
+                documentModel instanceof SpreadsheetDocument &&
+                documentModel.workbook.templateId === "requirements-definition"
+                  ? "RequirementsDefinition"
+                  : documentModel instanceof SpreadsheetDocument &&
+                      documentModel.workbook.templateId === "test-scenario"
+                    ? "TestScenarioResult"
+                    : "GenericExcel",
             };
       const result = await api.download(path, body);
       const href = URL.createObjectURL(result.blob);
@@ -231,6 +246,7 @@ export function ArtifactWorkspace({
       anchor.href = href;
       anchor.download = result.filename;
       anchor.click();
+
       URL.revokeObjectURL(href);
     } catch (error) {
       setProblem(
@@ -247,10 +263,28 @@ export function ArtifactWorkspace({
     }
   };
 
+  const recordCreatedVersion = (version: VersionResponse) => {
+    setLatestVersion(version);
+    setVersions((current) =>
+      [version, ...current.filter((item) => item.version_id !== version.version_id)].sort(
+        (a, b) => b.version_number - a.version_number,
+      ),
+    );
+  };
+
+  const isRequirementsDocument =
+    documentModel instanceof RequirementsDefinitionDocument ||
+    (documentModel instanceof SpreadsheetDocument &&
+      documentModel.workbook.templateId === "requirements-definition");
   const requirementIds =
     documentModel instanceof RequirementsDefinitionDocument
       ? documentModel.requirements.map((requirement) => requirement.id).filter(Boolean)
-      : [];
+      : documentModel instanceof SpreadsheetDocument &&
+          documentModel.workbook.templateId === "requirements-definition"
+        ? documentModel.workbook.sheets.flatMap((sheet) =>
+            sheet.rows.map((row) => String(row.requirement_id ?? "")).filter(Boolean),
+          )
+        : [];
 
   return (
     <section className="artifact-workspace">
@@ -314,6 +348,13 @@ export function ArtifactWorkspace({
                   onClick={() => void generateFile()}
                 >
                   {exporting ? "파일 생성 중…" : "파일 생성"}
+                </button>
+                <button
+                  className="delete-document-button"
+                  disabled={pending || exporting}
+                  onClick={() => setDeletionModalOpen(true)}
+                >
+                  문서 삭제
                 </button>
               </>
             )}
@@ -441,8 +482,11 @@ export function ArtifactWorkspace({
                 </div>
               )}
 
-              {documentView === "information" &&
-              documentModel.kind === "requirements-definition" ? (
+              {documentView === "information" && artifact ? (
+                <ActualVersionHistory versions={versions} />
+              ) : null}
+
+              {documentView === "information" && isRequirementsDocument ? (
                 <TraceabilityPanel
                   api={api}
                   projectId={projectId}
@@ -471,7 +515,19 @@ export function ArtifactWorkspace({
           projectId={projectId}
           artifactId={artifact.artifact_id}
           onClose={() => setVersionModalOpen(false)}
-          onCreated={setLatestVersion}
+          onCreated={recordCreatedVersion}
+        />
+      ) : null}
+      {artifact && deletionModalOpen ? (
+        <ArtifactDeletionModal
+          open={deletionModalOpen}
+          api={api}
+          projectId={projectId}
+          artifactId={artifact.artifact_id}
+          publicDocumentId={artifact.public_document_id}
+          title={savedTitle}
+          onClose={() => setDeletionModalOpen(false)}
+          onDeleted={onDeleted}
         />
       ) : null}
       <BlockingProgress
@@ -485,6 +541,47 @@ export function ArtifactWorkspace({
         }
         description="완료될 때까지 현재 화면에서 잠시 기다려 주세요."
       />
+    </section>
+  );
+}
+
+function ActualVersionHistory({ versions }: { versions: VersionResponse[] }) {
+  return (
+    <section className="actual-version-history" aria-labelledby="actual-version-history-title">
+      <header>
+        <div>
+          <span>VERSION HISTORY</span>
+          <h3 id="actual-version-history-title">개정이력</h3>
+          <p>새 버전 생성 시 저장된 immutable version 정보입니다.</p>
+        </div>
+        <strong>{versions.length}개 버전</strong>
+      </header>
+      {versions.length ? (
+        <div className="actual-version-list">
+          {versions.map((version) => {
+            const createdAt = new Date(version.created_at);
+            const hasCreatedAt =
+              !Number.isNaN(createdAt.getTime()) && createdAt.getUTCFullYear() > 1970;
+            return (
+              <article key={version.version_id}>
+                <span className="history-version">v{version.version_number}</span>
+                <div>
+                  <strong>{version.change_summary || "변경 메시지 없음"}</strong>
+                  <p>{version.title}</p>
+                </div>
+                <div className="actual-version-meta">
+                  <span>Draft revision {version.source_draft_revision}</span>
+                  <time dateTime={hasCreatedAt ? version.created_at : undefined}>
+                    {hasCreatedAt ? createdAt.toLocaleString("ko-KR") : "생성 시각 정보 없음"}
+                  </time>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="actual-version-empty">아직 생성된 버전이 없습니다.</div>
+      )}
     </section>
   );
 }

@@ -10,6 +10,7 @@ from app.domain.errors import PersistenceOutcomeUnknown, VersionConfirmationConf
 from app.domain.identifiers import ArtifactId, DraftId, ProjectId, TraceLinkId, VersionId
 from app.domain.ports import (
     ArtifactRepository,
+    AttachmentRepository,
     ObjectStoragePort,
     ProjectRepository,
     TraceLinkRepository,
@@ -22,6 +23,7 @@ from .models import (
     ArtifactMetadata,
     ArtifactResponse,
     ConfirmVersionRequest,
+    DeleteArtifactRequest,
     DiffRequest,
     DiffResult,
     DiffSourceRequest,
@@ -55,6 +57,7 @@ def _version_response(version: VersionSnapshot) -> VersionResponse:
         version_id=str(version.version_id),
         version_number=version.version_number,
         source_draft_revision=version.source_draft_revision.value,
+        created_at=version.created_at,
         title=version.title,
         description=version.description,
         tags=version.tags,
@@ -64,11 +67,18 @@ def _version_response(version: VersionSnapshot) -> VersionResponse:
 
 class LifecycleService:
     def __init__(
-        self, projects: ProjectRepository, artifacts: ArtifactRepository, storage: ObjectStoragePort
+        self,
+        projects: ProjectRepository,
+        artifacts: ArtifactRepository,
+        storage: ObjectStoragePort,
+        versions: VersionRepository | None = None,
+        attachments: AttachmentRepository | None = None,
     ) -> None:
         self._projects = projects
         self._artifacts = artifacts
         self._storage = storage
+        self._versions = versions
+        self._attachments = attachments
         self._scope = ProjectScopeGuard(projects, artifacts)
 
     def create(
@@ -129,6 +139,51 @@ class LifecycleService:
             )
             saved = self._artifacts.replace_draft(project_id, artifact_id, expected, replacement)
             return _artifact_response(artifact, saved)
+        except ApiProblem:
+            raise
+        except Exception as error:
+            raise map_domain_error(error) from error
+
+    def delete(
+        self, project_id: ProjectId, artifact_id: ArtifactId, request: DeleteArtifactRequest
+    ) -> None:
+        self._scope.require_artifact(project_id, artifact_id)
+        try:
+            draft = self._artifacts.get_draft(project_id, artifact_id)
+            if request.confirmation_title != draft.title:
+                raise ApiProblem(
+                    "ARTIFACT_DELETE_CONFIRMATION_MISMATCH",
+                    "문서 제목이 일치하지 않습니다.",
+                    status_code=400,
+                )
+
+            versions = (
+                self._versions.list_for_artifact(artifact_id) if self._versions is not None else ()
+            )
+            attachments = (
+                self._attachments.list_for_artifact(project_id, artifact_id)
+                if self._attachments is not None
+                else ()
+            )
+            object_keys = {
+                reference.object_key
+                for reference in (draft.content_ref, *(item.content_ref for item in versions))
+                if isinstance(reference, S3ContentRef)
+            }
+            object_keys.update(item.object_ref.object_key for item in attachments)
+
+            if self._versions is not None:
+                self._versions.delete_for_artifact(artifact_id)
+            if self._attachments is not None:
+                self._attachments.delete_for_artifact(project_id, artifact_id)
+            self._artifacts.delete(project_id, artifact_id)
+
+            for object_key in object_keys:
+                try:
+                    self._storage.delete_unreferenced(object_key)
+                except Exception:
+                    # Database deletion is authoritative; orphan cleanup can be retried later.
+                    pass
         except ApiProblem:
             raise
         except Exception as error:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 
 from app.core.auth import AdminPrincipal, require_admin
 from app.domain.identifiers import ArtifactId, ProjectId
@@ -16,6 +16,7 @@ from .models import (
     ArtifactResponse,
     ConfirmVersionRequest,
     CreateArtifactRequest,
+    DeleteArtifactRequest,
     DiffRequest,
     DiffResult,
     TraceGapRequest,
@@ -81,6 +82,22 @@ def update_draft(
     services: Annotated[Services, Depends(_services)],
 ) -> ArtifactResponse:
     return services[0].update(ProjectId.parse(project_id), ArtifactId.parse(artifact_id), request)
+
+
+@router.delete(
+    "/artifacts/{artifact_id}",
+    status_code=204,
+    responses={400: {"model": ApiError}, 404: {"model": ApiError}},
+)
+def delete_artifact(
+    project_id: str,
+    artifact_id: str,
+    request: DeleteArtifactRequest,
+    _: Annotated[AdminPrincipal, Depends(require_admin)],
+    services: Annotated[Services, Depends(_services)],
+) -> Response:
+    services[0].delete(ProjectId.parse(project_id), ArtifactId.parse(artifact_id), request)
+    return Response(status_code=204)
 
 
 @router.post("/artifacts/{artifact_id}/versions", response_model=VersionResponse)

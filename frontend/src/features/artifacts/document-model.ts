@@ -8,7 +8,11 @@ export type SpreadsheetSheet = {
   columns: SpreadsheetColumn[];
   rows: Record<string, string>[];
 };
-export type SpreadsheetWorkbook = { title: string; sheets: SpreadsheetSheet[] };
+export type SpreadsheetWorkbook = {
+  title: string;
+  templateId?: "requirements-definition" | "test-scenario" | "generic-excel";
+  sheets: SpreadsheetSheet[];
+};
 
 export type CoverInfo = { label: string; value: string };
 export type ChangeLogEntry = {

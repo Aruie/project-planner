@@ -3,14 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from app.domain.content import S3ContentRef
-from app.domain.entities import Artifact, Draft, Project, TraceLink, VersionSnapshot
+from app.domain.entities import Artifact, Attachment, Draft, Project, TraceLink, VersionSnapshot
 from app.domain.errors import (
     ArtifactNotFound,
     DraftRevisionConflict,
     ProjectNotFound,
     VersionNotFound,
 )
-from app.domain.identifiers import ArtifactId, ProjectId, PublicDocumentId, TraceLinkId, VersionId
+from app.domain.identifiers import (
+    ArtifactId,
+    AttachmentId,
+    ProjectId,
+    PublicDocumentId,
+    TraceLinkId,
+    VersionId,
+)
 
 
 @dataclass
@@ -49,6 +56,11 @@ class FakeArtifactRepository:
     def list_for_project(self, project_id: ProjectId) -> tuple[Artifact, ...]:
         return tuple(item for item in self.artifacts.values() if item.project_id == project_id)
 
+    def delete(self, project_id: ProjectId, artifact_id: ArtifactId) -> None:
+        self.get(project_id, artifact_id)
+        del self.artifacts[artifact_id]
+        del self.drafts[artifact_id]
+
     def replace_draft(
         self, project_id: ProjectId, artifact_id: ArtifactId, expected, replacement: Draft
     ) -> Draft:
@@ -78,6 +90,42 @@ class FakeVersionRepository:
 
     def list_for_artifact(self, artifact_id: ArtifactId) -> tuple[VersionSnapshot, ...]:
         return tuple(self.values.get(artifact_id, []))
+
+    def delete_for_artifact(self, artifact_id: ArtifactId) -> None:
+        self.values.pop(artifact_id, None)
+
+
+@dataclass
+class FakeAttachmentRepository:
+    values: dict[AttachmentId, Attachment] = field(default_factory=dict)
+
+    def save(self, attachment: Attachment) -> Attachment:
+        self.values[attachment.attachment_id] = attachment
+        return attachment
+
+    def get(
+        self, project_id: ProjectId, artifact_id: ArtifactId, attachment_id: AttachmentId
+    ) -> Attachment:
+        attachment = self.values[attachment_id]
+        if attachment.project_id != project_id or attachment.artifact_id != artifact_id:
+            raise KeyError(attachment_id)
+        return attachment
+
+    def list_for_artifact(
+        self, project_id: ProjectId, artifact_id: ArtifactId
+    ) -> tuple[Attachment, ...]:
+        return tuple(
+            item
+            for item in self.values.values()
+            if item.project_id == project_id and item.artifact_id == artifact_id
+        )
+
+    def delete_for_artifact(self, project_id: ProjectId, artifact_id: ArtifactId) -> None:
+        self.values = {
+            key: item
+            for key, item in self.values.items()
+            if item.project_id != project_id or item.artifact_id != artifact_id
+        }
 
 
 @dataclass

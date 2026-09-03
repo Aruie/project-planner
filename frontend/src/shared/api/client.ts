@@ -27,6 +27,10 @@ export class ApiClient {
   put<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
     return this.request<T>("PUT", path, { body, signal });
   }
+  async delete(path: string, body?: unknown, signal?: AbortSignal): Promise<void> {
+    const response = await this.raw("DELETE", path, { body, signal });
+    if (!response.ok) throw await this.problem(response);
+  }
 
   async download(
     path: string,

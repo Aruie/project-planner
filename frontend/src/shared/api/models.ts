@@ -38,6 +38,7 @@ export type VersionResponse = {
   version_id: string;
   version_number: number;
   source_draft_revision: number;
+  created_at: string;
   title: string;
   description: string;
   tags: string[];

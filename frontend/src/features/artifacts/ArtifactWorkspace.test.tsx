@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ArtifactWorkspace } from "./ArtifactWorkspace";
 import { ApiClient } from "../../shared/api/client";
-import type { ArtifactResponse } from "../../shared/api/models";
+import type { ArtifactResponse, VersionResponse } from "../../shared/api/models";
 
 afterEach(cleanup);
 
@@ -36,6 +36,7 @@ describe("ArtifactWorkspace", () => {
       listProblem: null,
       onArtifactsChange: vi.fn(),
       onArtifact: vi.fn(),
+      onDeleted: vi.fn(),
     };
     const view = render(<ArtifactWorkspace {...properties} projectId="" />);
 
@@ -69,6 +70,7 @@ describe("ArtifactWorkspace", () => {
         listProblem={null}
         onArtifactsChange={vi.fn()}
         onArtifact={vi.fn()}
+        onDeleted={vi.fn()}
       />,
     );
 
@@ -79,7 +81,85 @@ describe("ArtifactWorkspace", () => {
     expect(screen.getByRole("button", { name: "원문편집" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "버전정보" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "파일 생성" })).toBeEnabled();
-    expect(screen.getByText("개정 이력 없음")).toBeInTheDocument();
+    expect(screen.getByText("아직 생성된 버전이 없습니다.")).toBeInTheDocument();
     expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders immutable backend versions and their change summaries", async () => {
+    const version: VersionResponse = {
+      version_id: "version-2",
+      version_number: 2,
+      source_draft_revision: 2,
+      created_at: "2026-09-04T10:30:00+00:00",
+      title: artifact.title,
+      description: "sample",
+      tags: ["sample"],
+      change_summary: "승인 기준과 테스트 연결을 보완함",
+    };
+    const get = vi
+      .fn()
+      .mockImplementation((path: string) =>
+        Promise.resolve(path.endsWith("/versions") ? [version] : detail),
+      );
+
+    render(
+      <ArtifactWorkspace
+        api={{ get } as unknown as ApiClient}
+        projectId="sample-project"
+        initialArtifact={artifact}
+        artifacts={[artifact]}
+        loadingArtifacts={false}
+        listProblem={null}
+        onArtifactsChange={vi.fn()}
+        onArtifact={vi.fn()}
+        onDeleted={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    expect(screen.getAllByText("v2")).toHaveLength(2);
+    expect(screen.getByText("승인 기준과 테스트 연결을 보완함")).toBeInTheDocument();
+    expect(screen.getByText("Draft revision 2")).toBeInTheDocument();
+  });
+
+  it("requires the exact saved title before permanently deleting a document", async () => {
+    const user = userEvent.setup();
+    const get = vi
+      .fn()
+      .mockImplementation((path: string) =>
+        Promise.resolve(path.endsWith("/versions") ? [] : detail),
+      );
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const onDeleted = vi.fn();
+
+    render(
+      <ArtifactWorkspace
+        api={{ get, delete: remove } as unknown as ApiClient}
+        projectId="sample-project"
+        initialArtifact={artifact}
+        artifacts={[artifact]}
+        loadingArtifacts={false}
+        listProblem={null}
+        onArtifactsChange={vi.fn()}
+        onArtifact={vi.fn()}
+        onDeleted={onDeleted}
+      />,
+    );
+
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "문서 삭제" }));
+    const deleteButton = screen.getByRole("button", { name: "영구 삭제" });
+    expect(deleteButton).toBeDisabled();
+
+    await user.type(screen.getByPlaceholderText("문서 제목 입력"), artifact.title);
+    expect(deleteButton).toBeEnabled();
+    await user.click(deleteButton);
+
+    await waitFor(() =>
+      expect(remove).toHaveBeenCalledWith("/projects/sample-project/artifacts/sample-artifact", {
+        confirmation_title: artifact.title,
+      }),
+    );
+    expect(onDeleted).toHaveBeenCalledWith("sample-artifact");
   });
 });

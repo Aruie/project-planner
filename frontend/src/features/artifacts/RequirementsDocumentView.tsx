@@ -288,36 +288,21 @@ function DocumentInformation({
         <h3>문서 정보</h3>
         <p className="metadata-managed-copy">보호된 front matter는 이 화면에서만 변경됩니다.</p>
         <div className="metadata-form-grid compact">
-          {document.info.map((item, index) => (
-            <label key={`${item.label}-${index}`}>
-              <span>{item.label}</span>
-              <input
-                value={item.value}
-                onChange={(event) =>
-                  onContentChange(updateDocumentInfoValue(content, index, event.target.value))
-                }
-                disabled={disabled}
-              />
-            </label>
-          ))}
-        </div>
-      </section>
-      <section className="document-history-card">
-        <header>
-          <h3>개정 이력</h3>
-          <span>{document.changelog.length}개 버전 · 시스템 관리</span>
-        </header>
-        <div className="history-list">
-          {document.changelog.map((entry) => (
-            <article key={`${entry.version}-${entry.date}`}>
-              <span className="history-version">v{entry.version}</span>
-              <div>
-                <strong>{entry.date}</strong>
-                <p>{entry.changes}</p>
-              </div>
-              <span>{entry.author}</span>
-            </article>
-          ))}
+          {document.info
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => !/문\s*서\s*버\s*전|document\s*version/i.test(item.label))
+            .map(({ item, index }) => (
+              <label key={`${item.label}-${index}`}>
+                <span>{item.label}</span>
+                <input
+                  value={item.value}
+                  onChange={(event) =>
+                    onContentChange(updateDocumentInfoValue(content, index, event.target.value))
+                  }
+                  disabled={disabled}
+                />
+              </label>
+            ))}
         </div>
       </section>
     </div>

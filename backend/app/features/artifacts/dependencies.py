@@ -8,6 +8,7 @@ from fastapi import Depends
 from app.core.config import Settings, get_settings
 from app.persistence.dynamodb import (
     DynamoDbArtifactRepository,
+    DynamoDbAttachmentRepository,
     DynamoDbMetadataRepository,
     DynamoDbProjectRepository,
     DynamoDbTables,
@@ -41,9 +42,10 @@ def get_services(
     projects = DynamoDbProjectRepository(client, tables)
     artifacts = DynamoDbArtifactRepository(client, tables)
     versions = DynamoDbVersionRepository(client, tables)
+    attachments = DynamoDbAttachmentRepository(client, tables)
     traces = DynamoDbMetadataRepository(client, tables)
     return (
-        LifecycleService(projects, artifacts, storage),
+        LifecycleService(projects, artifacts, storage, versions, attachments),
         VersionConfirmationService(projects, artifacts, versions),
         DiffService(projects, artifacts, versions, storage),
         TraceabilityService(projects, artifacts, traces),

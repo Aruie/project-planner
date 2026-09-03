@@ -1809,7 +1809,7 @@ pre {
 }
 .generic-document-information {
   display: grid;
-  grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1.3fr);
+  grid-template-columns: 1fr;
   gap: 14px;
   padding: 18px;
   background: #f4f6f9;
@@ -3901,5 +3901,188 @@ pre {
 @media (max-width: 680px) {
   .metadata-form-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Backend immutable version history */
+.actual-version-history {
+  margin: 18px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #dfe4eb;
+  border-radius: 8px;
+}
+.actual-version-history > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 17px 19px;
+  background: #f8faff;
+  border-bottom: 1px solid #e3e8ef;
+}
+.actual-version-history header span {
+  color: #356ae6;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.actual-version-history h3 {
+  margin: 5px 0 3px;
+  color: #283548;
+  font-size: 0.86rem;
+}
+.actual-version-history header p {
+  margin: 0;
+  color: #7e899a;
+  font-size: 0.6rem;
+}
+.actual-version-history header > strong {
+  color: #4f5f75;
+  font-size: 0.61rem;
+  white-space: nowrap;
+}
+.actual-version-list article {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 13px;
+  align-items: center;
+  padding: 13px 19px;
+  border-bottom: 1px solid #edf0f4;
+}
+.actual-version-list article:last-child {
+  border-bottom: 0;
+}
+.history-version {
+  color: #285fca;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.actual-version-list article > div > strong {
+  color: #36445a;
+  font-size: 0.67rem;
+}
+.actual-version-list article > div > p {
+  margin: 3px 0 0;
+  color: #7e899a;
+  font-size: 0.58rem;
+}
+.actual-version-meta {
+  display: grid;
+  gap: 3px;
+  color: #8792a3;
+  font-size: 0.55rem;
+  text-align: right;
+}
+.actual-version-empty {
+  padding: 34px 18px;
+  color: #8994a5;
+  font-size: 0.65rem;
+  text-align: center;
+}
+
+/* Permanent artifact deletion */
+.delete-document-button,
+.danger-button {
+  min-height: 32px;
+  padding: 0 12px;
+  color: #b42318;
+  background: #fff5f4;
+  border: 1px solid #f4b8b2;
+  border-radius: 6px;
+  font-size: 0.61rem;
+  font-weight: 750;
+}
+.delete-document-button:hover:not(:disabled),
+.danger-button:hover:not(:disabled) {
+  color: #912018;
+  background: #fee9e7;
+  border-color: #e9958d;
+}
+.danger-button:disabled,
+.delete-document-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.deletion-modal-backdrop {
+  background: #2b0b0bd1;
+}
+.artifact-deletion-modal {
+  width: min(620px, 100%);
+  border-top: 4px solid #c9372c;
+}
+.artifact-deletion-modal header p,
+.artifact-deletion-modal header h2 {
+  color: #b42318;
+}
+.deletion-modal-body {
+  display: grid;
+  gap: 14px;
+}
+.deletion-document-identity,
+.deletion-warning {
+  display: grid;
+  gap: 5px;
+  padding: 13px 15px;
+  border-radius: 6px;
+}
+.deletion-document-identity {
+  background: #f7f8fa;
+  border: 1px solid #e1e5eb;
+}
+.deletion-document-identity span {
+  color: #748095;
+  font-family: ui-monospace, monospace;
+  font-size: 0.57rem;
+}
+.deletion-document-identity strong {
+  color: #344054;
+  font-size: 0.72rem;
+}
+.deletion-warning {
+  color: #8e2119;
+  background: #fff2f0;
+  border: 1px solid #f6c3be;
+  font-size: 0.63rem;
+}
+.deletion-warning ul {
+  display: grid;
+  gap: 4px;
+  margin: 3px 0 0;
+  padding-left: 18px;
+}
+.deletion-confirmation-field {
+  display: grid;
+  gap: 7px;
+  color: #4f5c70;
+  font-size: 0.63rem;
+  font-weight: 700;
+}
+.deletion-confirmation-field code {
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+  color: #9d241b;
+  background: #fff8f7;
+  border-radius: 4px;
+  font-size: 0.62rem;
+}
+.deletion-confirmation-field input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #ccd3de;
+  border-radius: 6px;
+  font-size: 0.68rem;
+}
+.deletion-confirmation-field input[aria-invalid="true"] {
+  border-color: #d92d20;
+  outline-color: #fda29b;
+}
+@media (max-width: 700px) {
+  .actual-version-list article {
+    grid-template-columns: 45px minmax(0, 1fr);
+  }
+  .actual-version-meta {
+    grid-column: 2;
+    text-align: left;
   }
 }

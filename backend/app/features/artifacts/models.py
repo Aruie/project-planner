@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -52,6 +53,15 @@ class UpdateDraftRequest(BaseModel):
         return ArtifactMetadata.normalize_tags(value)
 
 
+class DeleteArtifactRequest(BaseModel):
+    confirmation_title: str = Field(min_length=1, max_length=500)
+
+    @field_validator("confirmation_title", mode="before")
+    @classmethod
+    def normalize_confirmation_title(cls, value: object) -> str:
+        return str(value).strip()
+
+
 class ArtifactResponse(BaseModel):
     artifact_id: str
     project_id: str
@@ -81,6 +91,7 @@ class VersionResponse(BaseModel):
     version_id: str
     version_number: int
     source_draft_revision: int
+    created_at: datetime
     title: str
     description: str
     tags: tuple[str, ...]

@@ -76,6 +76,14 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
     }
   };
 
+  const deleteWorkspaceArtifact = (id: string) => {
+    setArtifacts((items) => items.filter((item) => item.artifact_id !== id));
+    setArtifactId("");
+    setSelectedArtifact(null);
+    setDraftTemplate(null);
+    setEditorSession((value) => value + 1);
+  };
+
   return (
     <main className="app-shell">
       <ProjectSidebar
@@ -123,6 +131,7 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
                     listProblem={artifactListProblem}
                     onArtifactsChange={setArtifacts}
                     onArtifact={syncWorkspaceArtifact}
+                    onDeleted={deleteWorkspaceArtifact}
                   />
                   <AiWorkspacePanel api={api} projectId={projectId} />
                 </div>
