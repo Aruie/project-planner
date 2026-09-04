@@ -134,3 +134,6 @@ class AiWorkspaceSession:
     preview_content_ref: ContentRef | None
     expires_at: datetime
     messages: tuple[AiSessionMessage, ...] = ()
+    proposal_target_artifact_id: ArtifactId | None = None
+    proposal_target_title: str = ""
+    proposal_changes: str = ""

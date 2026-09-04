@@ -64,7 +64,12 @@ def send_message(
     _: Annotated[AdminPrincipal, Depends(require_admin)],
     service: Annotated[AiWorkspaceService, Depends(_service)],
 ) -> AiWorkspaceState:
-    return service.send(ProjectId.parse(project_id), AiSessionId.parse(session_id), request.prompt)
+    return service.send(
+        ProjectId.parse(project_id),
+        AiSessionId.parse(session_id),
+        request.prompt,
+        request.active_artifact_id,
+    )
 
 
 @router.post(

@@ -40,11 +40,13 @@ def get_ai_workspace_service(
     )
     tables = _tables(settings)
     projects = DynamoDbProjectRepository(dynamodb, tables)
-    lifecycle = LifecycleService(projects, DynamoDbArtifactRepository(dynamodb, tables), storage)
+    artifacts = DynamoDbArtifactRepository(dynamodb, tables)
+    lifecycle = LifecycleService(projects, artifacts, storage)
     return AiWorkspaceService(
         projects,
         DynamoDbAiSessionRepository(dynamodb, tables),
         storage,
         BedrockConverseAdapter(boto3.client("bedrock-runtime", region_name=settings.aws_region)),
         lifecycle,
+        artifacts=artifacts,
     )

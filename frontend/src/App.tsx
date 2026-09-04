@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LoginScreen } from "./features/auth/LoginScreen";
 import { ProjectSidebar } from "./features/projects/ProjectSidebar";
 import { ArtifactWorkspace } from "./features/artifacts/ArtifactWorkspace";
@@ -14,6 +14,11 @@ import { ApiProblem, type ArtifactResponse, type ProjectSummary } from "./shared
 import { apiBaseUrl, localAutoLoginAccess, type RuntimeAccess } from "./shared/api/runtime-config";
 import { ProjectProvider, useProject } from "./shared/project/ProjectContext";
 
+type PendingAiProposal = {
+  targetArtifactId: string;
+  content: string;
+};
+
 function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () => void }) {
   const { projectId, setProjectId } = useProject();
   const [selectedProject, setSelectedProject] = useState<ProjectSummary | null>(null);
@@ -27,13 +32,30 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
   const [artifactListProblem, setArtifactListProblem] = useState<ApiProblem | null>(null);
   const [activeDocument, setActiveDocument] = useState<ActiveDocumentContext | null>(null);
   const [aiDocumentUpdate, setAiDocumentUpdate] = useState<AiDocumentUpdate | null>(null);
+  const [pendingAiProposal, setPendingAiProposal] = useState<PendingAiProposal | null>(null);
   const api = useMemo(() => new ApiClient(apiBaseUrl, () => access), [access]);
+
+  useEffect(() => {
+    if (!pendingAiProposal || activeDocument?.documentKey !== pendingAiProposal.targetArtifactId) {
+      return;
+    }
+    const dispatch = window.setTimeout(() => {
+      setAiDocumentUpdate((current) => ({
+        documentKey: pendingAiProposal.targetArtifactId,
+        content: pendingAiProposal.content,
+        requestId: (current?.requestId ?? 0) + 1,
+      }));
+      setPendingAiProposal(null);
+    }, 0);
+    return () => window.clearTimeout(dispatch);
+  }, [activeDocument, pendingAiProposal]);
 
   const selectProject = async (project: ProjectSummary) => {
     if (!setProjectId(project.project_id)) return;
     setSelectedProject(project);
     setActiveDocument(null);
     setAiDocumentUpdate(null);
+    setPendingAiProposal(null);
     setArtifactId("");
     setSelectedArtifact(null);
     setDraftTemplate(null);
@@ -61,6 +83,7 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
   const selectArtifact = (artifact: ArtifactResponse) => {
     setActiveDocument(null);
     setAiDocumentUpdate(null);
+    setPendingAiProposal(null);
     setDraftTemplate(null);
     setSelectedArtifact(artifact);
     setArtifactId(artifact.artifact_id);
@@ -73,6 +96,7 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
   const selectTemplate = (template: TemplateDraft) => {
     setActiveDocument(null);
     setAiDocumentUpdate(null);
+    setPendingAiProposal(null);
     setSelectedArtifact(null);
     setArtifactId("");
     setDraftTemplate(template);
@@ -91,6 +115,7 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
   const deleteWorkspaceArtifact = (id: string) => {
     setActiveDocument(null);
     setAiDocumentUpdate(null);
+    setPendingAiProposal(null);
     setArtifacts((items) => items.filter((item) => item.artifact_id !== id));
     setArtifactId("");
     setSelectedArtifact(null);
@@ -98,13 +123,24 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
     setEditorSession((value) => value + 1);
   };
 
-  const applyAiDocumentChange = (content: string) => {
-    if (!activeDocument) return;
-    setAiDocumentUpdate((current) => ({
-      documentKey: activeDocument.documentKey,
-      content,
-      requestId: (current?.requestId ?? 0) + 1,
-    }));
+  const applyAiDocumentChange = (targetArtifactId: string, content: string): boolean => {
+    const target = artifacts.find((artifact) => artifact.artifact_id === targetArtifactId);
+    if (!target) return false;
+    if (activeDocument?.documentKey === targetArtifactId) {
+      setAiDocumentUpdate((current) => ({
+        documentKey: targetArtifactId,
+        content,
+        requestId: (current?.requestId ?? 0) + 1,
+      }));
+      return true;
+    }
+    setPendingAiProposal({ targetArtifactId, content });
+    setActiveDocument(null);
+    setAiDocumentUpdate(null);
+    setDraftTemplate(null);
+    setSelectedArtifact(target);
+    setArtifactId(targetArtifactId);
+    return true;
   };
 
   return (
@@ -142,8 +178,8 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
             </section>
           ) : (
             <div className="project-page">
-              {selectedArtifact || draftTemplate ? (
-                <div className="document-workspace-layout">
+              <div className="document-workspace-layout">
+                {selectedArtifact || draftTemplate ? (
                   <ArtifactWorkspace
                     key={`${projectId}:${selectedArtifact?.artifact_id ?? `${draftTemplate?.templateId}-${editorSession}`}`}
                     api={api}
@@ -160,24 +196,26 @@ function Workspace({ access, onLogout }: { access: RuntimeAccess; onLogout: () =
                     onDocumentContextChange={setActiveDocument}
                     aiDocumentUpdate={aiDocumentUpdate}
                   />
-                  <AiWorkspacePanel
-                    key={`${projectId}:ai:${selectedArtifact?.artifact_id ?? `${draftTemplate?.templateId}-${editorSession}`}`}
-                    api={api}
-                    projectId={projectId}
-                    activeDocument={activeDocument}
-                    onApplyDocumentChange={applyAiDocumentChange}
-                  />
-                </div>
-              ) : (
-                <section className="template-start-empty">
-                  <div className="template-start-icon">+</div>
-                  <h2>새 산출물을 만들거나 기존 문서를 선택하세요</h2>
-                  <p>새 산출물은 템플릿을 선택하면 문서 종류에 맞는 작성 화면으로 시작합니다.</p>
-                  <button className="primary-button" onClick={() => setTemplateModalOpen(true)}>
-                    산출물 템플릿 선택
-                  </button>
-                </section>
-              )}
+                ) : (
+                  <section className="template-start-empty">
+                    <div className="template-start-icon">+</div>
+                    <h2>새 산출물을 만들거나 기존 문서를 선택하세요</h2>
+                    <p>
+                      AI에게 프로젝트를 질문하거나, 새 산출물은 템플릿을 선택해 작성할 수 있습니다.
+                    </p>
+                    <button className="primary-button" onClick={() => setTemplateModalOpen(true)}>
+                      산출물 템플릿 선택
+                    </button>
+                  </section>
+                )}
+                <AiWorkspacePanel
+                  key={`${projectId}:ai`}
+                  api={api}
+                  projectId={projectId}
+                  activeDocument={activeDocument}
+                  onApplyDocumentChange={applyAiDocumentChange}
+                />
+              </div>
             </div>
           )}
         </div>

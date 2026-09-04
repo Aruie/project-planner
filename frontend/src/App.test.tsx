@@ -19,7 +19,20 @@ describe("login and project sidebar", () => {
         .fn()
         .mockResolvedValueOnce(new Response(JSON.stringify({ username: "admin" }), { status: 200 }))
         .mockResolvedValueOnce(new Response(JSON.stringify([project]), { status: 200 }))
-        .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 })),
+        .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }))
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              session_id: "session-1",
+              project_id: project.project_id,
+              messages: [],
+              preview: null,
+              response_type: null,
+              expires_at: "2026-09-04T00:00:00Z",
+            }),
+            { status: 200 },
+          ),
+        ),
     );
     render(<App />);
     expect(screen.queryByTestId("project-sidebar")).not.toBeInTheDocument();
@@ -31,6 +44,8 @@ describe("login and project sidebar", () => {
     const item = await screen.findByTestId(`project-sidebar-item-${project.project_id}`);
     await user.click(item);
     await waitFor(() => expect(screen.getByText("등록된 산출물이 없습니다.")).toBeInTheDocument());
+    expect(await screen.findByRole("complementary", { name: "AI 프로젝트 도우미" })).toBeInTheDocument();
+    expect(screen.getByTestId("ai-prompt-input")).toBeEnabled();
     await user.click(screen.getByTestId("logout-button"));
     await waitFor(() => expect(screen.getByTestId("login-submit-button")).toBeInTheDocument());
     expect(screen.queryByTestId("project-sidebar")).not.toBeInTheDocument();

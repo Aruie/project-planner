@@ -632,6 +632,13 @@ class DynamoDbAiSessionRepository:
                 }
                 for message in session.messages
             ],
+            "proposal_target_artifact_id": (
+                str(session.proposal_target_artifact_id)
+                if session.proposal_target_artifact_id is not None
+                else None
+            ),
+            "proposal_target_title": session.proposal_target_title,
+            "proposal_changes": session.proposal_changes,
         }
         try:
             self._client.put_item(
@@ -652,7 +659,7 @@ class DynamoDbAiSessionRepository:
 
         from app.domain.entities import AiSessionMessage, AiWorkspaceSession
         from app.domain.errors import AiSessionNotFound
-        from app.domain.identifiers import ProjectId
+        from app.domain.identifiers import ArtifactId, ProjectId
 
         try:
             response = self._client.get_item(
@@ -675,12 +682,20 @@ class DynamoDbAiSessionRepository:
             )
             for message in payload.get("messages", [])
         )
+        target_artifact_id = payload.get("proposal_target_artifact_id")
         return AiWorkspaceSession(
-            session_id,
-            ProjectId.parse(_item_string(item, "project_id")),
-            content_ref_from_dict(preview) if isinstance(preview, dict) else None,
-            datetime.fromtimestamp(int(item["expires_at_epoch"]["N"]), tz=UTC),
-            messages,
+            session_id=session_id,
+            project_id=ProjectId.parse(_item_string(item, "project_id")),
+            preview_content_ref=(
+                content_ref_from_dict(preview) if isinstance(preview, dict) else None
+            ),
+            expires_at=datetime.fromtimestamp(int(item["expires_at_epoch"]["N"]), tz=UTC),
+            messages=messages,
+            proposal_target_artifact_id=(
+                ArtifactId.parse(str(target_artifact_id)) if target_artifact_id else None
+            ),
+            proposal_target_title=str(payload.get("proposal_target_title", "")),
+            proposal_changes=str(payload.get("proposal_changes", "")),
         )
 
     def expires_at(self, session_id):

@@ -4646,3 +4646,69 @@ pre {
   background: #f3f5f8;
   border-radius: 3px;
 }
+
+/* Project-wide AI proposal target and server-computed diff */
+.ai-preview-card > header {
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  color: #315b9e;
+  background: #eef4ff;
+}
+.ai-preview-card > header strong {
+  font-size: 0.62rem;
+}
+.ai-preview-card > header span {
+  overflow: hidden;
+  color: #627797;
+  font-size: 0.54rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-proposal-changes {
+  max-height: 180px;
+  margin: 0;
+  border-radius: 0;
+  color: #46556c;
+  background: #fbfdff;
+  font-size: 0.55rem;
+  line-height: 1.55;
+}
+.ai-proposal-no-diff {
+  margin: 0;
+  padding: 10px;
+  color: #7b8697;
+  font-size: 0.55rem;
+}
+.ai-full-proposal {
+  border-top: 1px solid #e1e8f3;
+}
+.ai-full-proposal summary {
+  color: #667892;
+  background: #f8fafc;
+  font-weight: 600;
+}
+.ai-full-proposal .ai-preview-content {
+  margin: 0;
+  border-radius: 0;
+}
+.ai-proposal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid #e1e8f3;
+}
+.ai-preview-card .ai-proposal-actions button {
+  margin: 0;
+}
+.ai-preview-card .ai-proposal-actions .secondary {
+  color: #526178;
+  background: #fff;
+  border: 1px solid #d7deea;
+}
+.ai-apply-success {
+  margin: 0 12px 9px;
+  color: #18794e;
+  font-size: 0.55rem;
+}

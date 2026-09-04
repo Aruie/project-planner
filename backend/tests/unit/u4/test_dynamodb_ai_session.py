@@ -32,6 +32,9 @@ def test_ai_session_save_contract_persists_scoped_payload_and_ttl_epoch() -> Non
         "messages": [
             {"role": "user", "content": "요구사항", "created_at": "2026-09-03T00:00:00+00:00"}
         ],
+        "proposal_target_artifact_id": None,
+        "proposal_target_title": "",
+        "proposal_changes": "",
     }
     expected = {
         "TableName": "sessions",
@@ -75,3 +78,6 @@ def test_ai_session_get_contract_round_trips_payload_and_scope_key() -> None:
         restored = DynamoDbAiSessionRepository(client, tables).get(project_id, session_id)
     assert restored.expires_at == expires_at
     assert restored.project_id == project_id
+    assert restored.proposal_target_artifact_id is None
+    assert restored.proposal_target_title == ""
+    assert restored.proposal_changes == ""

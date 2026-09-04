@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from app.domain.entities import AiSessionMessage
 from app.domain.identifiers import ProjectId
@@ -13,7 +13,9 @@ from app.features.artifacts.models import ArtifactMetadata, ArtifactResponse
 @dataclass(frozen=True, slots=True)
 class BedrockConversationResult:
     assistant_message: str
-    preview_markdown: str
+    response_type: Literal["answer", "proposal"] = "answer"
+    preview_markdown: str | None = None
+    target_artifact_id: str | None = None
 
 
 @runtime_checkable

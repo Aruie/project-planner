@@ -65,6 +65,10 @@ export type AiWorkspaceState = {
   project_id: string;
   messages: AiMessage[];
   preview: string | null;
+  response_type?: "answer" | "proposal" | null;
+  proposal_target_artifact_id?: string | null;
+  proposal_target_title?: string | null;
+  proposal_changes?: string | null;
   expires_at: string;
 };
 export type TraceGapResult = {

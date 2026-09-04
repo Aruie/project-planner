@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -18,6 +19,10 @@ class AiWorkspaceState(BaseModel):
     project_id: str
     messages: tuple[AiMessage, ...] = ()
     preview: str | None = None
+    response_type: Literal["answer", "proposal"] | None = None
+    proposal_target_artifact_id: str | None = None
+    proposal_target_title: str | None = None
+    proposal_changes: str | None = None
     expires_at: datetime
 
 
@@ -27,6 +32,7 @@ class StartSessionRequest(BaseModel):
 
 class SendMessageRequest(BaseModel):
     prompt: str = Field(min_length=1)
+    active_artifact_id: str | None = None
 
     @field_validator("prompt", mode="before")
     @classmethod

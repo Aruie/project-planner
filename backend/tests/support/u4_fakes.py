@@ -33,13 +33,15 @@ class FakeAiSessionRepository:
 @dataclass
 class FakeBedrock:
     result: BedrockConversationResult = field(
-        default_factory=lambda: BedrockConversationResult("응답", "# 요구사항\n내용")
+        default_factory=lambda: BedrockConversationResult("응답", "answer")
     )
     error: Exception | None = None
     calls: int = 0
+    prompts: list[str] = field(default_factory=list)
 
     def converse(self, messages, prompt):
         self.calls += 1
+        self.prompts.append(prompt)
         if self.error:
             raise self.error
         return self.result
