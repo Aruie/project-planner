@@ -143,6 +143,67 @@ describe("ArtifactWorkspace", () => {
     expect(get).toHaveBeenCalledTimes(2);
   });
 
+  it("inserts a selected image thumbnail at the current Markdown cursor", async () => {
+    const user = userEvent.setup();
+    const image = {
+      attachment_id: "image-1",
+      media_type: "image/png",
+      filename: "20_기술검증서_img_109.png",
+      markdown_path: "assets/20_기술검증서_img_109.png",
+      thumbnail_base64: "dGh1bWI=",
+      content_base64: null,
+    };
+    const get = vi.fn().mockImplementation((path: string) => {
+      if (path.endsWith("/versions")) return Promise.resolve([]);
+      if (path.endsWith("/attachments/image-1")) {
+        return Promise.resolve({ ...image, content_base64: "b3JpZ2luYWw=" });
+      }
+      if (path.endsWith("/attachments")) return Promise.resolve([image]);
+      return Promise.resolve(detail);
+    });
+    const put = vi.fn().mockResolvedValue({ ...artifact, revision: 3 });
+
+    render(
+      <ArtifactWorkspace
+        api={{ get, put } as unknown as ApiClient}
+        projectId="sample-project"
+        projectInformation={null}
+        initialArtifact={artifact}
+        artifacts={[artifact]}
+        loadingArtifacts={false}
+        listProblem={null}
+        onArtifactsChange={vi.fn()}
+        onArtifact={vi.fn()}
+        onDeleted={vi.fn()}
+        onDocumentContextChange={vi.fn()}
+        aiDocumentUpdate={null}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByText("문서를 불러오는 중입니다")).not.toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "원문편집" }));
+    const editor = (await screen.findByTestId("artifact-content-input")) as HTMLTextAreaElement;
+    editor.focus();
+    editor.setSelectionRange(0, 0);
+    await user.type(
+      screen.getByPlaceholderText("예: 미들웨어 테스트 결과"),
+      "미들웨어 테스트 결과",
+    );
+    await user.click(
+      await screen.findByTitle("20_기술검증서_img_109.png을 현재 커서 위치에 삽입"),
+    );
+
+    expect(editor.value).toMatch(
+      /^!\[미들웨어 테스트 결과\]\(assets\/20_기술검증서_img_109\.png\)/,
+    );
+
+    await user.click(screen.getByRole("button", { name: "미리보기" }));
+    const previewImage = await screen.findByRole("img", { name: "미들웨어 테스트 결과" });
+    await waitFor(() => expect(previewImage).toHaveAttribute("src", "data:image/png;base64,b3JpZ2luYWw="));
+  });
+
   it("opens a filename modal and requests a named PDF export", async () => {
     const user = userEvent.setup();
     const version: VersionResponse = {

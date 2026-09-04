@@ -28,3 +28,31 @@ def test_pdf_export_renders_korean_preview_structure() -> None:
     assert result.content_type == "application/pdf"
     assert result.content.startswith(b"%PDF-")
     assert len(result.content) > 2_000
+
+
+def test_pdf_export_embeds_resolved_markdown_image() -> None:
+    from base64 import b64decode
+
+    model = RenderModel(
+        cover=CoverModel(
+            public_document_id="PRJ-004",
+            title="이미지 문서",
+            description="",
+            artifact_type="MarkdownDocument",
+        ),
+        change_history=(),
+        body_blocks=(),
+    )
+    png = b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    )
+
+    result = pdf_export(
+        model,
+        "# 결과\n\n![미들웨어 테스트 결과](assets/result.png)",
+        "image.pdf",
+        {"assets/result.png": png},
+    )
+
+    assert result.content.startswith(b"%PDF-")
+    assert len(result.content) > 2_000

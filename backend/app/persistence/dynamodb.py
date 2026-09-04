@@ -489,6 +489,28 @@ class DynamoDbAttachmentRepository:
                                 "object_key": attachment.object_ref.object_key,
                                 "byte_size": attachment.object_ref.byte_size.value,
                                 "checksum": attachment.object_ref.checksum,
+                                "filename": attachment.filename,
+                                "markdown_path": attachment.markdown_path,
+                                "thumbnail_media_type": (
+                                    attachment.thumbnail_media_type.value
+                                    if attachment.thumbnail_media_type
+                                    else None
+                                ),
+                                "thumbnail_object_key": (
+                                    attachment.thumbnail_ref.object_key
+                                    if attachment.thumbnail_ref
+                                    else None
+                                ),
+                                "thumbnail_byte_size": (
+                                    attachment.thumbnail_ref.byte_size.value
+                                    if attachment.thumbnail_ref
+                                    else None
+                                ),
+                                "thumbnail_checksum": (
+                                    attachment.thumbnail_ref.checksum
+                                    if attachment.thumbnail_ref
+                                    else None
+                                ),
                             },
                             sort_keys=True,
                         )
@@ -519,6 +541,21 @@ class DynamoDbAttachmentRepository:
         ):
             raise ArtifactNotFound("Attachment does not exist")
         data = _payload(item)
+        thumbnail_key = data.get("thumbnail_object_key")
+        thumbnail_ref = (
+            AttachmentObjectRef(
+                str(thumbnail_key),
+                AttachmentSize(int(data["thumbnail_byte_size"])),
+                str(data["thumbnail_checksum"]),
+            )
+            if thumbnail_key
+            else None
+        )
+        thumbnail_media_type = (
+            AttachmentMediaType(str(data["thumbnail_media_type"]))
+            if data.get("thumbnail_media_type")
+            else None
+        )
         return Attachment(
             AttachmentId.parse(_item_string(item, "attachment_id")),
             project_id,
@@ -529,6 +566,10 @@ class DynamoDbAttachmentRepository:
                 AttachmentSize(int(data["byte_size"])),
                 str(data["checksum"]),
             ),
+            filename=str(data.get("filename", "")),
+            markdown_path=str(data.get("markdown_path", "")),
+            thumbnail_media_type=thumbnail_media_type,
+            thumbnail_ref=thumbnail_ref,
         )
 
     def list_for_artifact(self, project_id: ProjectId, artifact_id: ArtifactId):

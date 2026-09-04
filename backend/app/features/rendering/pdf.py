@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from html import escape
 from io import BytesIO
 
@@ -14,6 +15,7 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.platypus import (
+    Image,
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
@@ -160,7 +162,11 @@ def _table(rows: list[list[str]], styles: dict[str, ParagraphStyle]) -> Table:
     return table
 
 
-def _markdown_story(markdown: str, styles: dict[str, ParagraphStyle]) -> list[object]:
+def _markdown_story(
+    markdown: str,
+    styles: dict[str, ParagraphStyle],
+    images: Mapping[str, bytes] | None = None,
+) -> list[object]:
     story: list[object] = []
     lines = markdown.splitlines()
     index = 0
@@ -179,6 +185,14 @@ def _markdown_story(markdown: str, styles: dict[str, ParagraphStyle]) -> list[ob
             level = len(heading.group(1))
             style = styles["h1"] if level == 1 else styles["h2"] if level == 2 else styles["h3"]
             story.append(_paragraph(heading.group(2), style))
+            index += 1
+            continue
+        image_match = re.match(r"^!\[[^\]]*\]\((assets\/[^)]+)\)\s*$", line)
+        if image_match and images and (image_bytes := images.get(image_match.group(1))):
+            flush()
+            image = Image(BytesIO(image_bytes))
+            image._restrictSize(A4[0] - 36 * mm, 190 * mm)
+            story.extend([image, Spacer(1, 5 * mm)])
             index += 1
             continue
         if line.startswith("```"):
@@ -229,7 +243,12 @@ def _model_blocks(blocks: tuple[BodyBlock, ...], styles: dict[str, ParagraphStyl
     return story
 
 
-def pdf_export(model: RenderModel, markdown: str, filename: str) -> ExportResult:
+def pdf_export(
+    model: RenderModel,
+    markdown: str,
+    filename: str,
+    images: Mapping[str, bytes] | None = None,
+) -> ExportResult:
     try:
         _register_fonts()
         styles = _styles()
@@ -269,7 +288,7 @@ def pdf_export(model: RenderModel, markdown: str, filename: str) -> ExportResult
             story.append(PageBreak())
 
         body_story = (
-            _markdown_story(markdown, styles)
+            _markdown_story(markdown, styles, images)
             if markdown.strip()
             else _model_blocks(model.body_blocks, styles)
         )

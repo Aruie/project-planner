@@ -1,7 +1,10 @@
 from fastapi.testclient import TestClient
 
 from app.core.auth import AdminPrincipal, require_admin
+from app.features.rendering.attachments import AttachmentService
+from app.features.rendering.routes import get_attachment_service
 from app.main import app
+from tests.support.u2_fakes import FakeAttachmentRepository, FakeStorage
 
 
 def test_xlsx_export_route_returns_download_response() -> None:
@@ -81,3 +84,37 @@ def test_pdf_export_route_returns_named_pdf() -> None:
     assert response.content.startswith(b"%PDF-")
     assert ".pdf" in response.headers["content-disposition"]
     assert "filename*=UTF-8''" in response.headers["content-disposition"]
+
+
+def test_attachment_routes_store_thumbnail_and_resolve_original() -> None:
+    service = AttachmentService(FakeAttachmentRepository(), FakeStorage())
+    app.dependency_overrides[require_admin] = lambda: AdminPrincipal("admin")
+    app.dependency_overrides[get_attachment_service] = lambda: service
+    base = (
+        "/projects/123e4567-e89b-12d3-a456-426614174000/"
+        "artifacts/123e4567-e89b-12d3-a456-426614174001/attachments"
+    )
+    try:
+        uploaded = TestClient(app).post(
+            base,
+            json={
+                "media_type": "image/png",
+                "filename": "result image.png",
+                "content_base64": "b3JpZ2luYWw=",
+                "thumbnail_media_type": "image/png",
+                "thumbnail_base64": "dGh1bWJuYWls",
+            },
+        )
+        listed = TestClient(app).get(base)
+        resolved = TestClient(app).get(
+            f"{base}/{uploaded.json()['attachment_id']}"
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert uploaded.status_code == 200
+    assert uploaded.json()["markdown_path"] == "assets/result_image.png"
+    assert listed.status_code == 200
+    assert listed.json()[0]["thumbnail_base64"] == "dGh1bWJuYWls"
+    assert resolved.status_code == 200
+    assert resolved.json()["content_base64"] == "b3JpZ2luYWw="

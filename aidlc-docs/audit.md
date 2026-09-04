@@ -1931,3 +1931,19 @@ pdf 가 나와야지
 **Context**: Completed header-only title editing and explicit named PDF export workflow
 
 ---
+
+## Image Upload Feature Retry
+**Timestamp**: 2026-09-04T02:15:04Z
+**User Input**: "지금 아까 이미지 시도하다가 실패했거든? 그거다시좀해줄래 어딧로그보면 잇을거야 최근 몇개대화"
+**AI Response**: "최근 실패 기록을 바탕으로 백엔드 이미지 처리 의존성 없이 브라우저 생성 썸네일과 기존 S3/DynamoDB 첨부 인프라를 사용해 재구현하고, 커서 삽입·미리보기·PDF를 단계적으로 검증한다."
+**Context**: Construction / safe image attachment retry
+
+---
+
+## Image Upload Feature Retry Result
+**Timestamp**: 2026-09-04T02:31:00Z
+**User Input**: "지금 아까 이미지 시도하다가 실패했거든? 그거다시좀해줄래 어딧로그보면 잇을거야 최근 몇개대화"
+**AI Response**: "백엔드 이미지 처리 의존성을 추가하지 않고 브라우저에서 320px 썸네일을 생성해 원본과 함께 기존 S3/DynamoDB 첨부 인프라에 저장하도록 구현했다. 원문편집에서 설명 입력, 업로드, 썸네일 클릭 커서 삽입을 지원하며 미리보기와 PDF가 assets 경로를 원본 이미지로 해석한다. Backend 93 tests/Ruff, frontend 29 tests/typecheck/lint/build, live health/projects/OpenAPI 연결을 검증했다."
+**Context**: Construction / safe image attachment retry completed and validated
+
+---

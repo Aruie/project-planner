@@ -19,3 +19,7 @@ XLSX_EXPORT_FAILED = RenderProblem("XLSX_EXPORT_FAILED", "Excel 내보내기에 
 DOCX_EXPORT_FAILED = RenderProblem("DOCX_EXPORT_FAILED", "DOCX 내보내기에 실패했습니다.")
 
 PDF_EXPORT_FAILED = RenderProblem("PDF_EXPORT_FAILED", "PDF 내보내기에 실패했습니다.")
+
+ATTACHMENT_PAYLOAD_INVALID = RenderProblem(
+    "ATTACHMENT_PAYLOAD_INVALID", "이미지 첨부 데이터가 올바르지 않습니다."
+)

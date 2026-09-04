@@ -4556,3 +4556,93 @@ pre {
     width: 100%;
   }
 }
+
+.markdown-image-controls {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #dfe4eb;
+  border-radius: 6px;
+}
+.markdown-image-toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+}
+.markdown-image-toolbar label {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  color: #536075;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.markdown-image-toolbar input {
+  min-width: 0;
+  padding: 7px 8px;
+  background: #fff;
+  border: 1px solid #d7dde6;
+  border-radius: 4px;
+}
+.markdown-image-controls p {
+  margin: 0;
+  color: #7b8697;
+  font-size: 0.64rem;
+}
+.markdown-image-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.markdown-image-thumbnail {
+  display: grid;
+  width: 104px;
+  gap: 4px;
+  padding: 5px;
+  overflow: hidden;
+  color: #536075;
+  background: #fff;
+  border: 1px solid #d7dde6;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.markdown-image-thumbnail img,
+.markdown-image-thumbnail > span {
+  width: 92px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 3px;
+}
+.markdown-image-thumbnail > span {
+  display: grid;
+  place-items: center;
+  color: #9aa4b3;
+  background: #edf1f5;
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+.markdown-image-thumbnail small {
+  overflow: hidden;
+  font-size: 0.57rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.markdown-preview .markdown-attachment-image {
+  display: block;
+  max-width: 100%;
+  max-height: 620px;
+  margin: 16px auto;
+  object-fit: contain;
+  border: 1px solid #dfe4eb;
+  border-radius: 4px;
+}
+.markdown-image-missing {
+  display: inline-block;
+  padding: 5px 8px;
+  color: #7b8697;
+  background: #f3f5f8;
+  border-radius: 3px;
+}

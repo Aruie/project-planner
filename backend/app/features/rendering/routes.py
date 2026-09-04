@@ -1,4 +1,6 @@
+import re
 from base64 import b64decode, b64encode
+from binascii import Error as Base64Error
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import quote
@@ -15,6 +17,7 @@ from app.persistence.s3 import S3ObjectStorageAdapter
 
 from .attachments import AttachmentService
 from .docx import docx_export
+from .errors import ATTACHMENT_PAYLOAD_INVALID
 from .models import RenderModel
 from .pdf import pdf_export
 from .renderers import xlsx_export
@@ -36,12 +39,41 @@ router = APIRouter(prefix="/projects/{project_id}/artifacts/{artifact_id}", tags
 class AttachmentUpload(BaseModel):
     media_type: str
     content_base64: str
+    filename: str = ""
+    thumbnail_media_type: str | None = None
+    thumbnail_base64: str | None = None
 
 
 class AttachmentResponse(BaseModel):
     attachment_id: str
     media_type: str
+    filename: str = ""
+    markdown_path: str = ""
+    thumbnail_base64: str | None = None
     content_base64: str | None = None
+
+
+def _decode_base64(value: str) -> bytes:
+    try:
+        return b64decode(value, validate=True)
+    except (Base64Error, ValueError) as error:
+        raise ATTACHMENT_PAYLOAD_INVALID from error
+
+
+def _attachment_response(
+    attachment,
+    *,
+    thumbnail: bytes | None = None,
+    content: bytes | None = None,
+) -> AttachmentResponse:
+    return AttachmentResponse(
+        attachment_id=str(attachment.attachment_id),
+        media_type=attachment.media_type.value,
+        filename=attachment.filename,
+        markdown_path=attachment.markdown_path,
+        thumbnail_base64=b64encode(thumbnail).decode() if thumbnail is not None else None,
+        content_base64=b64encode(content).decode() if content is not None else None,
+    )
 
 
 def get_attachment_service(
@@ -74,15 +106,33 @@ def upload(
     _: Annotated[AdminPrincipal, Depends(require_admin)],
     service: Annotated[AttachmentService, Depends(get_attachment_service)],
 ) -> AttachmentResponse:
+    thumbnail = (
+        _decode_base64(request.thumbnail_base64) if request.thumbnail_base64 is not None else None
+    )
     attachment = service.upload(
         ProjectId.parse(project_id),
         ArtifactId.parse(artifact_id),
         request.media_type,
-        b64decode(request.content_base64, validate=True),
+        _decode_base64(request.content_base64),
+        filename=request.filename,
+        thumbnail_media_type=request.thumbnail_media_type,
+        thumbnail_content=thumbnail,
     )
-    return AttachmentResponse(
-        attachment_id=str(attachment.attachment_id), media_type=attachment.media_type.value
-    )
+    return _attachment_response(attachment)
+
+
+@router.get("/attachments", response_model=list[AttachmentResponse])
+def list_attachments(
+    project_id: str,
+    artifact_id: str,
+    _: Annotated[AdminPrincipal, Depends(require_admin)],
+    service: Annotated[AttachmentService, Depends(get_attachment_service)],
+) -> list[AttachmentResponse]:
+    attachments = service.list(ProjectId.parse(project_id), ArtifactId.parse(artifact_id))
+    return [
+        _attachment_response(item, thumbnail=service.resolve_thumbnail(item))
+        for item in attachments
+    ]
 
 
 @router.get("/attachments/{attachment_id}", response_model=AttachmentResponse)
@@ -98,11 +148,7 @@ def resolve(
         ArtifactId.parse(artifact_id),
         AttachmentId.parse(attachment_id),
     )
-    return AttachmentResponse(
-        attachment_id=str(attachment.attachment_id),
-        media_type=attachment.media_type.value,
-        content_base64=b64encode(content).decode(),
-    )
+    return _attachment_response(attachment, content=content)
 
 
 class XlsxRequest(BaseModel):
@@ -173,10 +219,20 @@ def export_pdf(
     artifact_id: str,
     request: PdfRequest,
     _: Annotated[AdminPrincipal, Depends(require_admin)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> Response:
-    ProjectId.parse(project_id)
-    ArtifactId.parse(artifact_id)
-    result = pdf_export(request.model, request.markdown, request.filename)
+    project = ProjectId.parse(project_id)
+    artifact = ArtifactId.parse(artifact_id)
+    referenced_paths = set(
+        re.findall(r"!\[[^\]]*\]\((assets\/[^)]+)\)", request.markdown)
+    )
+    images: dict[str, bytes] = {}
+    if referenced_paths:
+        service = get_attachment_service(settings)
+        for attachment in service.list(project, artifact):
+            if attachment.markdown_path in referenced_paths:
+                images[attachment.markdown_path] = service.content(attachment)
+    result = pdf_export(request.model, request.markdown, request.filename, images)
     return Response(
         content=result.content,
         media_type=result.content_type,

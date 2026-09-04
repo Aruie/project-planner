@@ -93,3 +93,12 @@ export type ProjectSummary = {
   client_name: string;
   organization_name: string;
 };
+
+export type ImageAttachmentResponse = {
+  attachment_id: string;
+  media_type: "image/png" | "image/jpeg";
+  filename: string;
+  markdown_path: string;
+  thumbnail_base64: string | null;
+  content_base64?: string | null;
+};

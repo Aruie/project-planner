@@ -612,7 +612,7 @@ export function ArtifactWorkspace({
               activeView={documentView === "preview" ? "requirements" : "source"}
               showNavigation={false}
             />
-          ) : content.trim() ? (
+          ) : content.trim() || documentView === "source" ? (
             <GenericDocumentView
               content={content}
               onContentChange={updateContent}
@@ -621,19 +621,10 @@ export function ArtifactWorkspace({
               showNavigation={false}
               documentTitle={title}
               projectInformation={projectInformation}
+              api={api}
+              projectId={projectId}
+              artifactId={artifact?.artifact_id}
             />
-          ) : documentView === "source" ? (
-            <label className="document-content-field">
-              <span>Markdown 본문</span>
-              <textarea
-                data-testid="artifact-content-input"
-                aria-label="Markdown 본문"
-                placeholder={artifact ? "문서 본문을 입력하세요." : "문서 내용을 입력하세요."}
-                value={content}
-                onChange={(event) => updateContent(event.target.value)}
-                disabled={!projectId}
-              />
-            </label>
           ) : (
             <div className="document-empty-view">
               <strong>미리볼 내용이 없습니다.</strong>

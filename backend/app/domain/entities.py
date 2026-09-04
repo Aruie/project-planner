@@ -98,6 +98,10 @@ class Attachment:
     artifact_id: ArtifactId
     media_type: AttachmentMediaType
     object_ref: AttachmentObjectRef
+    filename: str = ""
+    markdown_path: str = ""
+    thumbnail_media_type: AttachmentMediaType | None = None
+    thumbnail_ref: AttachmentObjectRef | None = None
 
 
 @dataclass(frozen=True, slots=True)

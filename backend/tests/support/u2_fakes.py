@@ -140,6 +140,17 @@ class FakeStorage:
         self.objects[key] = content
         return S3ContentRef(key, len(content), checksum)
 
+    def put_attachment(self, key, content, media_type):
+        from hashlib import sha256
+
+        from app.domain.attachments import AttachmentObjectRef, AttachmentSize
+
+        self.objects[key] = content
+        return AttachmentObjectRef(key, AttachmentSize(len(content)), sha256(content).hexdigest())
+
+    def get_attachment(self, reference):
+        return self.objects[reference.object_key]
+
     def get_content(self, reference: S3ContentRef) -> bytes:
         return self.objects[reference.object_key]
 
